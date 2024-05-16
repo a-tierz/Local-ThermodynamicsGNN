@@ -1,0 +1,32 @@
+{
+  "project_name": "Beam_2D",
+  "dataset": {
+    "folder": "weights",
+    "type": "solid",
+    "dt": 0.02,
+    "radius_connectivity": 9,
+    "dataset_dim": "2D",
+    "external_force_dim": 1,
+    "state_variables": ["COORD.COOR1", "COORD.COOR2", "v1", "v2", "S.S11", "S.S22", "S.S12"],
+    "datasetPaths": {
+      "train": "Beam2D_train.pt",
+      "val": "Beam2D__val.pt",
+      "test": "Beam2D_test_2emp.pt"
+    }
+  },
+  "model": {
+    "n_hidden": 2,
+    "dim_hidden": 80,
+    "passes": 9,
+    "seed": 1,
+    "fixLr": true,
+    "lr": 1e-3,
+    "lambda_d": 5,
+    "noise_var": 4e-5,
+    "batch_size": 2,
+    "max_epoch": 1000,
+    "miles": [100, 200, 300, 400],
+    "gamma": 3e-1,
+    "rollout_freq": 100
+  }
+}

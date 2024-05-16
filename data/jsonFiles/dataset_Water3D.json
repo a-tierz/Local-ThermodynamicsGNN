@@ -1,0 +1,32 @@
+{
+  "project_name": "Glass3D",
+  "dataset": {
+    "folder": "weights",
+    "type": "fluid",
+    "dt": 0.004,
+    "radius_connectivity": 0.007,
+    "dataset_dim": "3D",
+    "external_force_dim": 0,
+    "state_variables": ["COORD.COOR1", "COORD.COOR2", "COORD.COOR3", "v1", "v2", "v3", "  E"],
+    "datasetPaths": {
+      "train": "Glass3D_train.pt",
+      "val": "Glass3D_val.pt",
+      "test": "Glass3D_test.pt"
+    }
+  },
+  "model": {
+    "n_hidden": 2,
+    "dim_hidden": 100,
+    "passes": 5,
+    "seed": 1,
+    "fixLr": true,
+    "lr": 8e-4,
+    "lambda_d": 10,
+    "noise_var": 8e-4,
+    "batch_size": 1,
+    "max_epoch": 250,
+    "miles": [100, 150, 200, 300, 400],
+    "gamma": 3e-1,
+    "rollout_freq": 50
+  }
+}
