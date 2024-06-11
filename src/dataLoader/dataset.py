@@ -19,10 +19,11 @@ class GraphDataset(Dataset):
         self.q_dim = 2 if dInfo['dataset']['dataset_dim'] == '2D' else 3
         self.dims = {
             'z': self.z_dim,
-            'q': self.q_dim,
-            'q_0': 0,
+            'q': dInfo['dataset']['q_dim'],
+            'q_0': dInfo['dataset']['q0_dim'],
             'n': 1,
             'f': dInfo['dataset']['external_force_dim'],
+            'g':dInfo['dataset']['g_dim'],
         }
 
         self.dt = dInfo['dataset']['dt']
