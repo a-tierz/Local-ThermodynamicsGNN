@@ -80,7 +80,7 @@ class NodalGNN(pl.LightningModule):
         self.dtset_type = dt_info['dataset']['type']
         self.radius_connectivity = dt_info['dataset']['radius_connectivity']
         self.save_folder = save_folder
-        self.data_dim = 2 if dt_info['dataset']['dataset_dim'] == '2D' else 3
+        self.data_dim = dt_info['dataset']['q_dim']
         self.dims = dims
         self.dim_z = self.dims['z']
         self.dim_q = self.dims['q']
