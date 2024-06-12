@@ -7,6 +7,9 @@
     "radius_connectivity": 55,
     "dataset_dim": "3D",
     "external_force_dim": 3,
+    "q_dim": 3,
+    "q0_dim": 0,
+    "g_dim": 0,
     "state_variables": ["COORD.COOR1", "COORD.COOR2", "COORD.COOR3", "v1", "v2", "v3", "S.S11", "S.S22", "S.S33", "S.S12", "S.S13", "S.S23"],
     "datasetPaths": {
       "train": "Beam3D_train.pt",
