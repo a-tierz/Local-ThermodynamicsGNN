@@ -4,10 +4,10 @@ import torch
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from amb.metrics import rrmse_inf
+# from amb.metrics import rrmse_inf
 from torch_geometric.loader import DataLoader
 from src.utils.utils import print_error, generate_folder
-from src.utils.plots import plot_2D_image, plot_2D, plot_image3D, plotError, plot_3D
+# from src.utils.plots import plot_2D_image, plot_2D, plot_image3D, plotError, plot_3D
 from src.utils.utils import compute_connectivity
 from src.dataLoader.dataset import GraphDataset
 
@@ -81,6 +81,35 @@ def roll_out(nodal_gnn, dataloader, device, radius_connectivity, dtset_type, gla
     print(f'El tiempo tardado en el compute connectivity: {cnt_conet}')
     print(f'El tiempo tardado en la red: {cnt_gnn}')
     return z_net, z_gt
+
+
+def roll_out_false(nodal_gnn, dataloader, device):
+    data = [sample for sample in dataloader]
+    cnt_conet = 0
+    cnt_gnn = 0
+
+    dim_z = data[0].x.shape[1]
+    N_nodes = data[0].x.shape[0]
+
+    z_net = torch.zeros(len(data), N_nodes, dim_z)
+    z_gt = torch.zeros(len(data), N_nodes, dim_z)
+
+    try:
+        for t, snap in enumerate(data):
+            snap = snap.to(device)
+            with torch.no_grad():
+                start_time = time.time()
+                y_pred, z_t1 = nodal_gnn.predict_step(snap, 1)
+                cnt_gnn += time.time()-start_time
+
+            z_net[t + 1] = y_pred
+            z_gt[t + 1] = snap.y
+    except:
+        print(f'Ha fallado el rollout en el momento: {t}')
+
+    print(f'El tiempo tardado en el compute connectivity: {cnt_conet}')
+    print(f'El tiempo tardado en la red: {cnt_gnn}')
+    return z_net, z_gt
 def generate_results(plasticity_gnn, test_dataloader, dInfo, device, output_dir_exp, pahtDInfo, pathWeights):
 
     # Generate output folder
@@ -111,6 +140,69 @@ def generate_results(plasticity_gnn, test_dataloader, dInfo, device, output_dir_
         # plot_image3D(z_net, z_gt, output_dir_exp, var=1, step=70, n=data[0].n)
         # plot_image3D(z_net, z_gt, output_dir_exp, var=4, step=70, n=data[0].n)
         plot_3D(z_net, z_gt, save_dir=save_dir_gif, var=-1)
+
+
+def set_equal_aspect_3d(ax):
+    limits = np.array([ax.get_xlim(), ax.get_ylim(), ax.get_zlim()])
+    ranges = np.ptp(limits, axis=1)
+    max_range = ranges.max()
+    centers = np.mean(limits, axis=1)
+    new_limits = np.array([centers - max_range / 2, centers + max_range / 2]).T
+    ax.set_xlim(new_limits[0])
+    ax.set_ylim(new_limits[1])
+    ax.set_zlim(new_limits[2])
+def generate_results2(plasticity_gnn, test_dataloader, dInfo, device, output_dir_exp, pahtDInfo, pathWeights):
+
+    # Generate output folder
+    output_dir_exp = generate_folder(output_dir_exp, pahtDInfo, pathWeights)
+    save_dir_gif = os.path.join(output_dir_exp, f'result.gif')
+    dim_data = 2 if dInfo['dataset']['dataset_dim'] == '2D' else 3
+    # Make roll out
+    start_time = time.time()
+    z_net, z_gt= roll_out_false(plasticity_gnn, test_dataloader, device)
+    print(f'El tiempo tardado en el rollout: {time.time()-start_time}')
+
+    data = [sample for sample in test_dataloader]
+    # for i in range(len(data)):
+    for c in range(6):
+        i = 19
+        x = data[i]
+        s_color = c
+        # # Crear una figura 3D
+        fig = plt.figure()
+        ax = fig.add_subplot(121, projection='3d')
+        scatter = ax.scatter(x.x[:,0], x.x[:,2], x.x[:,1], c=z_net[i, :, s_color], cmap='viridis', marker='o')
+        fig.colorbar(scatter, ax=ax, label='Valores')
+        set_equal_aspect_3d(ax)
+
+        ax = fig.add_subplot(122, projection='3d')
+        scatter = ax.scatter(x.x[:, 0], x.x[:, 2], x.x[:, 1], c=z_gt[i, :, s_color], cmap='viridis', marker='o')
+        fig.colorbar(scatter, ax=ax, label='Valores')
+        set_equal_aspect_3d(ax)
+        plt.show()
+
+
+    filePath = os.path.join(output_dir_exp, 'metrics.txt')
+    with open(filePath, 'w') as f:
+        error, L2_list = compute_error(z_net[1:, :, :], z_gt[1:, :, :], dInfo['dataset']['state_variables'])
+        lines = print_error(error)
+        f.write('\n'.join(lines))
+        print("[Test Evaluation Finished]\n")
+        f.close()
+    # plotError(z_gt, z_net, L2_list, dInfo['dataset']['state_variables'], dInfo['dataset']['dataset_dim'], output_dir_exp)
+
+    if dInfo['project_name'] == 'Beam_2D':
+        plot_2D_image(z_net, z_gt, -1, 4, output_dir=output_dir_exp)
+        plot_2D(z_net, z_gt, save_dir_gif, var=4)
+    else:
+        data = [sample for sample in test_dataloader]
+        # video_plot_3D(z_net, z_gt, save_dir=save_dir_gif_pdc,)
+        # plot_image3D(z_net, z_g[t, output_dir_exp, var=-1, step=-1, n=data[0].n[:,0])
+        # plot_image3D(z_net, z_gt, output_dir_exp, var=2, step=70, n=data[0].n)
+        # plot_image3D(z_net, z_gt, output_dir_exp, var=1, step=70, n=data[0].n)
+        # plot_image3D(z_net, z_gt, output_dir_exp, var=4, step=70, n=data[0].n)
+        plot_3D(z_net, z_gt, save_dir=save_dir_gif, var=-1)
+
 
 
 

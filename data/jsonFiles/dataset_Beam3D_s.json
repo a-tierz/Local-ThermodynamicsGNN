@@ -1,0 +1,36 @@
+{
+  "project_name": "Beam_3D_s",
+  "dataset": {
+    "folder": "weights",
+    "type": "solid",
+    "dt": 0.001,
+    "radius_connectivity": 0.04,
+    "dataset_dim": "3D",
+    "external_force_dim": 0,
+    "q_dim": 3,
+    "q0_dim": 3,
+    "g_dim": 0,
+    "state_variables": ["COORD.COOR1", "COORD.COOR2", "COORD.COOR3", "u1", "u2", "u3"],
+    "state_variables_out": ["S.S11", "S.S22", "S.S33", "S.S12", "S.S13", "S.S23"],
+    "datasetPaths": {
+      "train": "Beam_p1_train.pt",
+      "val": "Beam_p1_val.pt",
+      "test": "Beam_p1_test.pt"
+    }
+  },
+  "model": {
+    "n_hidden": 2,
+    "dim_hidden": 50,
+    "passes": 9,
+    "seed": 1,
+    "fixLr": true,
+    "lr": 2e-3,
+    "lambda_d": 5,
+    "noise_var": 0,
+    "batch_size": 2,
+    "max_epoch": 1000,
+    "miles": [100, 250, 500, 700],
+    "gamma": 3e-1,
+    "rollout_freq":100
+  }
+}

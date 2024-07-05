@@ -10,8 +10,8 @@ from pytorch_lightning.loggers import WandbLogger
 from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor, EarlyStopping
 
 from src.dataLoader.dataset import GraphDataset
-from src.gnn_nodal import NodalGNN
-from src.callbacks import RolloutCallback
+from src.gnn import NodalGNN
+# from src.callbacks import RolloutCallback
 from src.utils.utils import str2bool
 
 
@@ -26,7 +26,7 @@ if __name__ == '__main__':
 
     # Dataset Parameters
     parser.add_argument('--dset_dir', default='data', type=str, help='dataset directory')
-    parser.add_argument('--dset_name', default=r'dataset_Beam2D.json', type=str, help='dataset directory')
+    parser.add_argument('--dset_name', default=r'dataset_Beam3D_s.json', type=str, help='dataset directory')
 
     # Save and plot options
     parser.add_argument('--output_dir', default='outputs', type=str, help='output directory')
@@ -52,7 +52,7 @@ if __name__ == '__main__':
     test_dataloader = DataLoader(test_set, batch_size=1)
 
     # Calculate scaling statistics
-    scaler = train_set.get_stats()
+    scaler_pu, scaler_s = train_set.get_stats2()
 
     # Set up experiment logging
     name = f"train_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
@@ -64,10 +64,10 @@ if __name__ == '__main__':
     checkpoint = ModelCheckpoint(dirpath=save_folder, filename='{epoch}-{val_loss:.2f}', monitor='val_loss',
                                  save_top_k=3)
     lr_monitor = LearningRateMonitor(logging_interval='epoch')
-    rollout = RolloutCallback(test_dataloader)
+    # rollout = RolloutCallback(test_dataloader)
 
     # Instantiate model
-    nodal_gnn = NodalGNN(train_set.dims, scaler, dInfo, save_folder)
+    nodal_gnn = NodalGNN(train_set.dims, scaler_pu, scaler_s, dInfo, save_folder)
     print(nodal_gnn)
     wandb_logger.watch(nodal_gnn)
 
@@ -80,7 +80,7 @@ if __name__ == '__main__':
     # Set up Trainer
     trainer = pl.Trainer(accelerator="gpu",
                          logger=wandb_logger,
-                         callbacks=[checkpoint, lr_monitor, rollout, early_stop],
+                         callbacks=[checkpoint, lr_monitor, early_stop],
                          profiler="simple",
                          gradient_clip_val=0.5,
                          num_sanity_val_steps=0,
