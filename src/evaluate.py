@@ -3,7 +3,7 @@ import time
 import torch
 import numpy as np
 from src.utils.utils import print_error, generate_folder
-from src.utils.plots import plot_2D_image, plot_2D, plot_image3D, plotError, plot_3D
+from src.utils.plots import plot_2D_image, plot_2D, video_plot_3D, plotError, plot_3D
 from src.utils.utils import compute_connectivity
 
 
@@ -78,16 +78,17 @@ def roll_out(plasticity_gnn, dataloader, device, radius_connectivity, dim_data, 
 
     print(f'El tiempo tardado en el compute connectivity: {cnt_conet}')
     print(f'El tiempo tardado en la red: {cnt_gnn}')
-    return z_net, z_gt
+    return z_net, z_gt, t
 def generate_results(plasticity_gnn, test_dataloader, dInfo, device, output_dir_exp, pahtDInfo, pathWeights):
 
     # Generate output folder
     output_dir_exp = generate_folder(output_dir_exp, pahtDInfo, pathWeights)
     save_dir_gif = os.path.join(output_dir_exp, f'result.gif')
+    save_dir_pcd = os.path.join(output_dir_exp, f'result_pdc.gif')
     dim_data = 2 if dInfo['dataset']['dataset_dim'] == '2D' else 3
     # Make roll out
     start_time = time.time()
-    z_net, z_gt= roll_out(plasticity_gnn, test_dataloader, device, dInfo['dataset']['radius_connectivity'], dim_data, dInfo['dataset']['type'])
+    z_net, z_gt, t = roll_out(plasticity_gnn, test_dataloader, device, dInfo['dataset']['radius_connectivity'], dim_data, dInfo['dataset']['type'])
     print(f'El tiempo tardado en el rollout: {time.time()-start_time}')
     filePath = os.path.join(output_dir_exp, 'metrics.txt')
     with open(filePath, 'w') as f:
@@ -103,10 +104,10 @@ def generate_results(plasticity_gnn, test_dataloader, dInfo, device, output_dir_
         plot_2D(z_net, z_gt, save_dir_gif, var=4)
     else:
         data = [sample for sample in test_dataloader]
-        # video_plot_3D(z_net, z_gt, save_dir=save_dir_gif_pdc,)
-        plot_image3D(z_net, z_gt, output_dir_exp, var=-1, step=-1, n=data[0].n[:,0])
+        video_plot_3D(z_net[:t, :, :], z_gt[:t, :, :], save_dir=save_dir_pcd,)
+        # plot_image3D(z_net[:t, :, :], z_gt[:t, :, :], output_dir_exp, var=-1, step=-1, n=data[0].n[:,0])
         # plot_image3D(z_net, z_gt, output_dir_exp, var=2, step=70, n=data[0].n)
         # plot_image3D(z_net, z_gt, output_dir_exp, var=1, step=70, n=data[0].n)
         # plot_image3D(z_net, z_gt, output_dir_exp, var=4, step=70, n=data[0].n)
-        plot_3D(z_net, z_gt, save_dir=save_dir_gif, var=-1)
+        plot_3D(z_net[:t, :, :], z_gt[:t, :, :], save_dir=save_dir_gif, var=-1)
 

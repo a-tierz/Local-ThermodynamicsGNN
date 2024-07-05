@@ -82,7 +82,7 @@ if __name__ == '__main__':
                          logger=wandb_logger,
                          callbacks=[checkpoint, lr_monitor, rollout, early_stop],
                          profiler="simple",
-                         gradient_clip_val=0.5,
+                         # gradient_clip_val=0.5,
                          num_sanity_val_steps=0,
                          max_epochs=dInfo['model']['max_epoch'],
                          deterministic=True,
