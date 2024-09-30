@@ -26,7 +26,7 @@ if __name__ == '__main__':
 
     # Dataset Parameters
     parser.add_argument('--dset_dir', default='data', type=str, help='dataset directory')
-    parser.add_argument('--dset_name', default=r'dataset_Beam2D.json', type=str, help='dataset directory')
+    parser.add_argument('--dset_name', default=r'dataset_Water3D.json', type=str, help='dataset directory')
 
     # Save and plot options
     parser.add_argument('--output_dir', default='outputs', type=str, help='output directory')
@@ -82,7 +82,7 @@ if __name__ == '__main__':
                          logger=wandb_logger,
                          callbacks=[checkpoint, lr_monitor, rollout, early_stop],
                          profiler="simple",
-                         gradient_clip_val=0.5,
+                         # gradient_clip_val=0.5,
                          num_sanity_val_steps=0,
                          max_epochs=dInfo['model']['max_epoch'],
                          deterministic=True,
