@@ -6,6 +6,7 @@ import cv2
 import torch
 import numpy as np
 import open3d as o3d
+import time
 import plotly.graph_objs as go
 import matplotlib.pyplot as plt
 from matplotlib import animation
@@ -457,18 +458,16 @@ def plotError(gt, z_net, L2_list, state_variables, dataset_dim, output_dir_exp):
         plt.savefig(os.path.join(output_dir_exp, 'ss_error.png'))
 
 
-
 def generate_pointclud(z_net, n, name=''):
     # Crear la nube de puntos inicial
     pcd = o3d.geometry.PointCloud()
     xyz = np.asarray(z_net[0, :, 0:3].to(torch.float64))
     try:
-         pcd.points = o3d.utility.Vector3dVector(xyz)
+        pcd.points = o3d.utility.Vector3dVector(xyz)
     except Exception as e:
         print(f"Error: {e}")
-    
-    pcd.points = o3d.utility.Vector3dVector(xyz)
-    data = z_net[0, :, -1]  # [n == 1]
+
+    data = z_net[0, :, -1]
     norm = Normalize(vmin=data.min(), vmax=data.max())
     cmap = plt.get_cmap('viridis')
     colors = cmap(norm(data))
@@ -476,25 +475,25 @@ def generate_pointclud(z_net, n, name=''):
     colores = o3d.utility.Vector3dVector(colors[:, :-1].astype(np.float64))
     pcd.colors = colores
 
-    # Crear la ventana de visualización
+    # Crear la ventana de visualización con dimensiones explícitas
     visualizer = o3d.visualization.Visualizer()
     visualizer.create_window()
-    view_control = visualizer.get_view_control()
+    # view_control = visualizer.get_view_control()
     visualizer.add_geometry(pcd)
 
-    # Guardar la posición inicial de la cámara
-    initial_view = view_control.convert_to_pinhole_camera_parameters()
+    # Guardar la posición inicial de la cámara fuera del bucle
+    # initial_view = view_control.convert_to_pinhole_camera_parameters()
 
-    for i in range(1, z_net.shape[0]):  # Empezamos desde 1 ya que ya hemos añadido la primera nube de puntos
-        # Restaurar la posición inicial de la cámara
-        view_control.convert_from_pinhole_camera_parameters(initial_view)
-        # view_control.rotate(i * -0.2, 80)  # Ajusta el ángulo de rotación según tus necesidades
-        view_control.set_zoom(0.8)
-        # view_control.rotate(0, 30)
-        # Crear la nube de puntos
-        z_net_i = np.asarray(z_net[i, :, 0:3].to(torch.float64)) 
+    for i in range(1, z_net.shape[0]):
+        # No restaurar la vista en cada iteración, innecesario
+        # view_control.convert_from_pinhole_camera_parameters(initial_view)
+        # view_control.set_zoom(0.8)
+
+        # Actualizar la nube de puntos
+        z_net_i = np.asarray(z_net[i, :, 0:3].to(torch.float64))
         pcd.points = o3d.utility.Vector3dVector(z_net_i)
-        data = z_net[i, :, -1]  # [n == 1]
+
+        data = z_net[i, :, -1]
         norm = Normalize(vmin=data.min(), vmax=data.max())
         colors = cmap(norm(data))
         colors[n == 0, :] = np.array([0.8, 0.8, 0.8, 1])
@@ -506,6 +505,9 @@ def generate_pointclud(z_net, n, name=''):
         visualizer.poll_events()
         visualizer.update_renderer()
         visualizer.capture_screen_image(f'images/{name}_frame_{i}.png', do_render=True)
+
+        # Pequeña pausa para permitir que la visualización se actualice correctamente
+        time.sleep(0.05)
 
     # Cerrar la ventana al finalizar
     visualizer.destroy_window()
