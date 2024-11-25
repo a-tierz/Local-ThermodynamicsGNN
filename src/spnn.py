@@ -17,58 +17,13 @@ class MLP(torch.nn.Module):
             self.layers.append(layer)
             self.layers.append(nn.SiLU()) if k != len(layer_vec) - 2 else None
 
+
+
     def forward(self, x):
         for layer in self.layers:
             x = layer(x)
         return x
 
-
-# Edge model
-class EdgeModel(torch.nn.Module):
-    def __init__(self, n_hidden, dim_hidden):
-        super(EdgeModel, self).__init__()
-        self.n_hidden = n_hidden
-        self.dim_hidden = dim_hidden
-        self.edge_mlp = MLP([3 * self.dim_hidden] + self.n_hidden * [self.dim_hidden] + [self.dim_hidden])
-
-    def forward(self, src, dest, edge_attr):
-        out = torch.cat([edge_attr, src, dest], dim=1)
-        out = self.edge_mlp(out)
-        return out
-
-
-# Node model
-class NodeModel(torch.nn.Module):
-    def __init__(self, n_hidden, dim_hidden, dims):
-        super(NodeModel, self).__init__()
-        self.n_hidden = n_hidden
-        self.dim_hidden = dim_hidden
-        self.node_mlp = MLP(
-            # [2 * self.dim_hidden + dims['f']] + self.n_hidden * [self.dim_hidden] + [self.dim_hidden])
-            [2 * self.dim_hidden+int(1/2* self.dim_hidden)] + self.n_hidden * [self.dim_hidden] + [self.dim_hidden])
-
-    def forward(self, x, dest, edge_attr, f=None):
-        out = scatter_mean(edge_attr, dest, dim=0, dim_size=x.size(0))
-        if f is not None:
-            out = torch.cat([x, out, f], dim=1)
-        else:
-            out = torch.cat([x, out], dim=1)
-        out = self.node_mlp(out)
-        return out
-
-
-# Modification of the original MetaLayer class
-class MetaLayer(torch.nn.Module):
-    def __init__(self, edge_model=None, node_model=None):
-        super().__init__()
-        self.edge_model = edge_model
-        self.node_model = node_model
-
-    def forward(self, x, edge_index, edge_attr, f=None):
-        src, dest = edge_index
-        edge_attr = self.edge_model(x[src], x[dest], edge_attr)
-        x = self.node_model(x, dest, edge_attr, f)
-        return x, edge_attr
 
 
 class NodalGNN(pl.LightningModule):
@@ -86,32 +41,36 @@ class NodalGNN(pl.LightningModule):
         self.dims = dims
         self.dim_z = self.dims['z']
         self.dim_q = self.dims['q']
-        dim_node = self.dims['z'] + self.dims['n'] - self.dims['q']
-        dim_edge = self.dims['q'] + self.dims['q_0'] + 1
+        # dim_node = self.dims['z'] + self.dims['n'] - self.dims['q']
+        # dim_edge = self.dims['q'] + self.dims['q_0'] + 1
         dim_f = self.dims['f']
         self.state_variables = dt_info['dataset']['state_variables']
 
-        # Encoder MLPs
-        self.encoder_node = MLP([dim_node] + n_hidden * [dim_hidden] + [dim_hidden])
-        self.encoder_edge = MLP([dim_edge] + n_hidden * [dim_hidden] + [dim_hidden])
-        if self.dims['f'] >0:
-            self.encoder_f = MLP([dim_f] + n_hidden * [dim_hidden] + [int(dim_hidden/2)])
+        self.encoder = MLP([ self.dims['z'] + self.dims['n'] + dim_f ] + n_hidden * [dim_hidden] + [dim_hidden])
 
-        node_model = NodeModel(n_hidden, dim_hidden, self.dims)
-        edge_model = EdgeModel(n_hidden, dim_hidden)
-        self.GraphNet = \
-            MetaLayer(node_model=node_model, edge_model=edge_model)
+        # # Encoder MLPs
+        # self.encoder_node = MLP([dim_node] + n_hidden * [dim_hidden] + [dim_hidden])
+        # self.encoder_edge = MLP([dim_edge] + n_hidden * [dim_hidden] + [dim_hidden])
+        # if self.dims['f'] >0:
+        #     self.encoder_f = MLP([dim_f] + n_hidden * [dim_hidden] + [int(dim_hidden/2)])
+        #
+        # node_model = NodeModel(n_hidden, dim_hidden, self.dims)
+        # edge_model = EdgeModel(n_hidden, dim_hidden)
+        # self.GraphNet = \
+        #     MetaLayer(node_model=node_model, edge_model=edge_model)
 
         self.decoder_E = MLP([dim_hidden] + n_hidden * [dim_hidden] + [self.dim_z])
         self.decoder_S = MLP([dim_hidden] + n_hidden * [dim_hidden] + [self.dim_z])
 
-        self.decoder_L = MLP([dim_hidden * 3] + n_hidden * [dim_hidden] * 2 + [
+        self.decoder_L = MLP([dim_hidden * 2] + n_hidden * [dim_hidden] * 2 + [
             int(self.dim_z * (self.dim_z + 1) / 2 - self.dim_z)])
         self.decoder_M = MLP(
-            [dim_hidden * 3] + n_hidden * [dim_hidden] * 2 + [int(self.dim_z * (self.dim_z + 1) / 2)])
+            [dim_hidden * 2] + n_hidden * [dim_hidden] * 2 + [int(self.dim_z * (self.dim_z + 1) / 2)])
 
         self.ones = torch.ones(self.dim_z, self.dim_z)
+
         self.scaler, self.scaler_f  = scaler
+
         self.dt = dt_info['dataset']['dt']
         self.noise_var = dt_info['model']['noise_var']
         self.lambda_d = dt_info['model']['lambda_d']
@@ -124,16 +83,18 @@ class NodalGNN(pl.LightningModule):
         self.rollout_freq = dt_info['model']['rollout_freq']
         self.error_message_pass = []
 
-    def decoder(self, x, edge_attr, src, dest):
+    def decoder(self, x, src, dest):
         # Gradients
         dEdz = self.decoder_E(x).unsqueeze(-1)
         dSdz = self.decoder_S(x).unsqueeze(-1)
 
-        l = self.decoder_L(torch.cat([edge_attr, x[src], x[dest]], dim=1))
-        m = self.decoder_M(torch.cat([edge_attr, x[src], x[dest]], dim=1))
+        # l = self.decoder_L(torch.cat([edge_attr, x[src], x[dest]], dim=1))
+        l = self.decoder_L(torch.cat([x[src], x[dest]], dim=1))
+        # m = self.decoder_M(torch.cat([edge_attr, x[src], x[dest]], dim=1))
+        m = self.decoder_M(torch.cat([x[src], x[dest]], dim=1))
 
-        L = torch.zeros(edge_attr.size(0), self.dim_z, self.dim_z, device=l.device, dtype=l.dtype)
-        M = torch.zeros(edge_attr.size(0), self.dim_z, self.dim_z, device=m.device, dtype=m.dtype)
+        L = torch.zeros(x[src].size(0), self.dim_z, self.dim_z, device=l.device, dtype=l.dtype)
+        M = torch.zeros(x[src].size(0), self.dim_z, self.dim_z, device=m.device, dtype=m.dtype)
         L[:, torch.tril(self.ones, -1) == 1] = l
         M[:, torch.tril(self.ones) == 1] = m
 
@@ -167,45 +128,51 @@ class NodalGNN(pl.LightningModule):
             noise = self.noise_var * torch.randn_like(z_norm[n == 2])
             z_norm[n == 2] = z_norm[n == 2] + noise*z_norm[n == 2]
 
-        q = z_norm[:, :self.dim_q]
-        v = z_norm[:, self.dim_q:]
-        x = torch.cat((v, torch.reshape(n.type(torch.float32), (len(n), 1))), dim=1)
 
-        # Edge attributes
-        src, dest = edge_index
-        u = q[src] - q[dest]
-        u_norm = torch.norm(u, dim=1).reshape(-1, 1)
-        edge_attr = torch.cat((u, u_norm), dim=1)
+        # q = z_norm[:, :self.dim_q]
+        # v = z_norm[:, self.dim_q:]
+        x = torch.cat((z_norm, torch.reshape(n.type(torch.float32), (len(n), 1))), dim=1)
+        if f is not None:
+            x = torch.cat((x, f.type(torch.float32)), dim=1)
 
         '''Encode'''
-        x = self.encoder_node(x)
-        edge_attr = self.encoder_edge(edge_attr)
-        if f is not None:
-            f = self.encoder_f(f)
+        x = self.encoder(x)
 
-        '''Process'''
-        for i in range(self.passes):
-            if mode == 'eval':
-                plot_info.append(torch.norm(x, dim=1).reshape(-1, 1).clone())
-            x_res, edge_attr_res = self.GraphNet(x, edge_index, edge_attr, f=f)
-            # if f is not None:
-            #     f = f*0
-            x += x_res
-            edge_attr += edge_attr_res
+        # # Edge attributes
+        # src, dest = edge_index
+        # u = q[src] - q[dest]
+        # u_norm = torch.norm(u, dim=1).reshape(-1, 1)
+        # edge_attr = torch.cat((u, u_norm), dim=1)
+        #
+        # '''Encode'''
+        # x = self.encoder_node(x)
+        # edge_attr = self.encoder_edge(edge_attr)
+        # if f is not None:
+        #     f = self.encoder_f(f)
+        #
+        # '''Process'''
+        # for i in range(self.passes):
+        #     if mode == 'eval':
+        #         plot_info.append(torch.norm(x, dim=1).reshape(-1, 1).clone())
+        #     x_res, edge_attr_res = self.GraphNet(x, edge_index, edge_attr, f=f)
+        #     # if f is not None:
+        #     #     f = f*0
+        #     x += x_res
+        #     edge_attr += edge_attr_res
 
         '''Decoder'''
         if self.project_name == 'Glass3D':
-            edge_index, edge_attr = add_self_loops(edge_index, edge_attr)
+            edge_index, _ = add_self_loops(edge_index)
             n_glass = x[n == 0].shape[0]
             mask_fluid = ((edge_index >= n_glass)[0, :]) & ((edge_index >= n_glass)[1, :])
             edge_index = edge_index[:, mask_fluid]
             edge_index = edge_index - torch.min(edge_index)
-            edge_attr = edge_attr[mask_fluid, :]
+            # edge_attr = edge_attr[mask_fluid, :]
             x = x[n == 1]
         else:
-            edge_index, edge_attr = add_self_loops(edge_index, edge_attr)
+            edge_index, _ = add_self_loops(edge_index)
 
-        dzdt_net, loss_deg_E, loss_deg_S = self.decoder(x, edge_attr, edge_index[0, :], edge_index[1, :])
+        dzdt_net, loss_deg_E, loss_deg_S = self.decoder(x, edge_index[0, :], edge_index[1, :])
 
         dzdt = (z1_norm - z_norm) / self.dt
 
@@ -239,6 +206,7 @@ class NodalGNN(pl.LightningModule):
         if self.project_name == 'Beam_3D':
             z_t0, z_t1, edge_index, n, f = batch.x, batch.y, batch.edge_index, batch.n[:,0], batch.f
             # z_t0, z_t1, edge_index, n, f = batch.x, batch.y, batch.edge_index, batch.n, batch.f
+            # z_t0, z_t1, edge_index, n, f = batch.x, batch.y, batch.edge_index, batch.n, batch.f.unsqueeze(-1)
         elif self.project_name == 'Beam_2D':
             z_t0, z_t1, edge_index, n, f = batch.x, batch.y, batch.edge_index, batch.n, batch.f
         else:
@@ -270,6 +238,10 @@ class NodalGNN(pl.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+
+        # lr_scheduler = {
+        #     'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.8, patience=100),
+        #     'monitor': 'train_loss'}
         lr_scheduler = {
             'scheduler': torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=self.miles, gamma=self.gamma),
             'monitor': 'train_loss'}

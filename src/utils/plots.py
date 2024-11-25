@@ -341,7 +341,7 @@ def plot_3D(z_net, z_gt, save_dir, var=5):
 
 
 def plot_image3D(z_net, z_gt, save_folder, var=5, step=-1, n=[]):
-    fig = plt.figure(figsize=(24, 20))
+    fig = plt.figure(figsize=(20, 10))
     ax1 = fig.add_subplot(1, 3, 2, projection='3d')
     plt.axis('off')
     ax2 = fig.add_subplot(1, 3, 1, projection='3d')
@@ -536,3 +536,57 @@ def video_plot_3D(z_net, z_gt, save_dir, n=[]):
             print()
 
     imageio.mimsave(save_dir, image_lst, fps=10, loop=1)
+
+
+
+def plot_3D_mp(z_net, plot_info, frame):
+    T = len(plot_info)
+    fig = plt.figure(figsize=(15, 10))
+    ax1 = fig.add_subplot(1, 3, 2, projection='3d')
+    ax1.set_title('Thermodynamics-informed GNN'), ax1.grid()
+    ax1.set_xlabel('X'), ax1.set_ylabel('Y'), ax1.set_zlabel('Z')
+    ax1.view_init(elev=0., azim=90)
+    # Adjust ranges
+    X, Y, Z = z_net[:, :, 0].numpy(), z_net[:, :, 1].numpy(), z_net[:, :, 2].numpy()
+    max_range = np.array([X.max() - X.min(), Y.max() - Y.min(), Z.max() - Z.min()]).max()
+    Xb = 0.5 * max_range * np.mgrid[-1:2:2, -1:2:2, -1:2:2][0].flatten() + 0.5 * (X.max() + X.min())
+    Yb = 0.5 * max_range * np.mgrid[-1:2:2, -1:2:2, -1:2:2][1].flatten() + 0.5 * (Y.max() + Y.min())
+    Zb = 0.5 * max_range * np.mgrid[-1:2:2, -1:2:2, -1:2:2][2].flatten() + 0.5 * (Z.max() + Z.min())
+    # Initial snapshot
+    q1_net, q2_net, q3_net = z_net[frame, :, 0], z_net[frame, :, 2], z_net[frame, :, 1]
+    # Bounding box
+    for xb, yb, zb in zip(Xb, Yb, Zb):
+        ax1.plot([xb], [zb], [yb], 'w')
+    # Scatter points
+    s1 = ax1.scatter(q1_net, q2_net, q3_net, c=plot_info[0].cpu() / plot_info[0].cpu())
+    # Colorbar
+    fig.colorbar(s1, ax=ax1, location='bottom', pad=0.08)
+    i = 1
+    # Animation
+    def animate(snap):
+        ax1.cla()
+        ax1.set_title(f'Thermodynamics-informed GNN, f={str(snap)}')
+        ax1.grid()
+        ax1.set_xlabel('X'), ax1.set_ylabel('Y'), ax1.set_zlabel('Z')
+
+        # Bounding box
+        for xb, yb, zb in zip(Xb, Yb, Zb):
+            ax1.plot([xb], [zb], [yb], 'w')
+
+        # Scatter points
+        q1_net, q2_net, q3_net = z_net[frame, :, 0], z_net[frame, :, 2], z_net[frame, :, 1]
+        ax1.scatter(q1_net, q2_net, q3_net, c=plot_info[snap].cpu() / plot_info[0].cpu())
+
+        # Guardar la figura para cada frame
+        fig.savefig(os.path.join(
+            r'/home/atierz/Documentos/experiments/Foam_visco/3D/frames/',
+            f'2beam_{frame}_{snap}.png'
+        ))
+        return fig,
+
+    anim = animation.FuncAnimation(fig, animate, frames=T, repeat=False)
+    writergif = animation.PillowWriter(fps=8)
+    # Save as gif
+    # save_dir = os.path.join(output_dir, 'beam.gif')
+    save_dir = f'{frame}_messagePassing.gif'
+    anim.save(save_dir, writer=writergif)

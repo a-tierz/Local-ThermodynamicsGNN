@@ -10,7 +10,8 @@ from pytorch_lightning.loggers import WandbLogger
 from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor, EarlyStopping
 
 from src.dataLoader.dataset import GraphDataset
-from src.gnn_nodal import NodalGNN
+# from src.gnn_nodal import NodalGNN
+from src.spnn import NodalGNN
 from src.callbacks import RolloutCallback
 from src.utils.utils import str2bool
 
@@ -27,7 +28,7 @@ if __name__ == '__main__':
     # Dataset Parameters
     parser.add_argument('--dset_dir', default='data', type=str, help='dataset directory')
     parser.add_argument('--dset_name', default=r'dataset_Water3D.json', type=str, help='dataset directory')
-
+ 
     # Save and plot options
     parser.add_argument('--output_dir', default='outputs', type=str, help='output directory')
     parser.add_argument('--output_dir_exp', default=r'outputs/', type=str, help='output directory')
@@ -55,12 +56,13 @@ if __name__ == '__main__':
     scaler = train_set.get_stats()
 
     # Set up experiment logging
-    name = f"train_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+    name = f"SPNN_local_NumLayers{dInfo['model']['n_hidden']}_Passes{dInfo['model']['passes']}_lr{dInfo['model']['lr']}_noise{dInfo['model']['noise_var']}_lamda{dInfo['model']['lambda_d']}_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+    # name = f"train_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
     save_folder = f'outputs/runs/{name}'
     wandb_logger = WandbLogger(name=name, project=dInfo['project_name'])
 
     # Set up callbacks
-    early_stop = EarlyStopping(monitor="val_loss", min_delta=0.00, patience=250, verbose=True, mode="min")
+    early_stop = EarlyStopping(monitor="val_loss", min_delta=0.00, patience=200, verbose=True, mode="min")
     checkpoint = ModelCheckpoint(dirpath=save_folder, filename='{epoch}-{val_loss:.2f}', monitor='val_loss',
                                  save_top_k=3)
     lr_monitor = LearningRateMonitor(logging_interval='epoch')

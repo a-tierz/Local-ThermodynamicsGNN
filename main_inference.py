@@ -8,6 +8,7 @@ import lightning.pytorch as pl
 from torch_geometric.loader import DataLoader
 from src.dataLoader.dataset import GraphDataset
 from src.gnn_nodal import NodalGNN
+# from src.spnn import NodalGNN
 from src.utils.utils import str2bool
 from src.evaluate import generate_results
 
