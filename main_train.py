@@ -27,13 +27,14 @@ if __name__ == '__main__':
     # Dataset Parameters
     parser.add_argument('--dset_dir', default='data', type=str, help='dataset directory')
     parser.add_argument('--dset_name', default=r'dataset_Water3D.json', type=str, help='dataset directory')
-
+ 
     # Save and plot options
     parser.add_argument('--output_dir', default='outputs', type=str, help='output directory')
     parser.add_argument('--output_dir_exp', default=r'outputs/', type=str, help='output directory')
     parser.add_argument('--experiment_name', default='exp3', type=str, help='experiment output name tensorboard')
     args = parser.parse_args()  # Parse command-line arguments
 
+    pl.seed_everything(1)
     device = torch.device('cuda' if args.gpu and torch.cuda.is_available() else 'cpu')
 
     # Load dataset information from JSON file
@@ -56,11 +57,12 @@ if __name__ == '__main__':
 
     # Set up experiment logging
     name = f"train_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+    # name = f"train_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
     save_folder = f'outputs/runs/{name}'
     wandb_logger = WandbLogger(name=name, project=dInfo['project_name'])
 
     # Set up callbacks
-    early_stop = EarlyStopping(monitor="val_loss", min_delta=0.00, patience=250, verbose=True, mode="min")
+    early_stop = EarlyStopping(monitor="val_loss", min_delta=0.00, patience=200, verbose=True, mode="min")
     checkpoint = ModelCheckpoint(dirpath=save_folder, filename='{epoch}-{val_loss:.2f}', monitor='val_loss',
                                  save_top_k=3)
     lr_monitor = LearningRateMonitor(logging_interval='epoch')

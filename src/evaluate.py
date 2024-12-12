@@ -4,10 +4,11 @@ import torch
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import animation
 # from amb.metrics import rrmse_inf
 from torch_geometric.loader import DataLoader
 from src.utils.utils import print_error, generate_folder
-from src.utils.plots import plot_2D_image, plot_2D, plot_image3D, plotError, plot_3D, video_plot_3D
+from src.utils.plots import plot_2D_image, plot_2D, plot_image3D, plotError, plot_3D, video_plot_3D, plot_3D_mp
 from src.utils.utils import compute_connectivity
 from src.dataLoader.dataset import GraphDataset
 
@@ -61,7 +62,7 @@ def roll_out(nodal_gnn, dataloader, device, radius_connectivity, dtset_type, gla
             snap = snap.to(device)
             with torch.no_grad():
                 start_time = time.time()
-                z_denorm, z_t1 = nodal_gnn.predict_step(snap, 1)
+                z_denorm, z_t1, _ = nodal_gnn.predict_step(snap, 1)
                 cnt_gnn += time.time() - start_time
             if dtset_type == 'fluid':
                 pos = z_denorm[:, :3].clone()
@@ -82,7 +83,7 @@ def roll_out(nodal_gnn, dataloader, device, radius_connectivity, dtset_type, gla
 
     print(f'El tiempo tardado en el compute connectivity: {cnt_conet}')
     print(f'El tiempo tardado en la red: {cnt_gnn}')
-    return z_net, z_gt, t
+    return z_net, z_gt, t+1
 
 
 def generate_results(plasticity_gnn, test_dataloader, dInfo, device, output_dir_exp, pahtDInfo, pathWeights):

@@ -1,6 +1,7 @@
 """model.py"""
 import torch
 import torch.nn as nn
+import numpy as np
 import lightning.pytorch as pl
 from torch_scatter import scatter_add, scatter_mean
 from torch_geometric.utils import add_self_loops
@@ -42,8 +43,12 @@ class NodeModel(torch.nn.Module):
         super(NodeModel, self).__init__()
         self.n_hidden = n_hidden
         self.dim_hidden = dim_hidden
-        self.node_mlp = MLP(
-            [2 * self.dim_hidden + dims['f']] + self.n_hidden * [self.dim_hidden] + [self.dim_hidden])
+        if dims['f'] == 0:
+            self.node_mlp = MLP(
+                [2 * self.dim_hidden + dims['f']] + self.n_hidden * [self.dim_hidden] + [self.dim_hidden])
+        else:
+            self.node_mlp = MLP(
+                [2 * self.dim_hidden+int(1/2* self.dim_hidden)] + self.n_hidden * [self.dim_hidden] + [self.dim_hidden])
 
     def forward(self, x, dest, edge_attr, f=None):
         out = scatter_mean(edge_attr, dest, dim=0, dim_size=x.size(0))
@@ -86,11 +91,14 @@ class NodalGNN(pl.LightningModule):
         self.dim_q = self.dims['q']
         dim_node = self.dims['z'] + self.dims['n'] - self.dims['q']
         dim_edge = self.dims['q'] + self.dims['q_0'] + 1
+        dim_f = self.dims['f']
         self.state_variables = dt_info['dataset']['state_variables']
 
         # Encoder MLPs
         self.encoder_node = MLP([dim_node] + n_hidden * [dim_hidden] + [dim_hidden])
         self.encoder_edge = MLP([dim_edge] + n_hidden * [dim_hidden] + [dim_hidden])
+        if self.dims['f'] >0:
+            self.encoder_f = MLP([dim_f] + n_hidden * [dim_hidden] + [int(dim_hidden/2)])
 
         node_model = NodeModel(n_hidden, dim_hidden, self.dims)
         edge_model = EdgeModel(n_hidden, dim_hidden)
@@ -106,7 +114,7 @@ class NodalGNN(pl.LightningModule):
             [dim_hidden * 3] + n_hidden * [dim_hidden] * 2 + [int(self.dim_z * (self.dim_z + 1) / 2)])
 
         self.ones = torch.ones(self.dim_z, self.dim_z)
-        self.scaler = scaler
+        self.scaler, self.scaler_f  = scaler
         self.dt = dt_info['dataset']['dt']
         self.noise_var = dt_info['model']['noise_var']
         self.lambda_d = dt_info['model']['lambda_d']
@@ -149,16 +157,18 @@ class NodalGNN(pl.LightningModule):
 
         return dzdt_net, loss_deg_E, loss_deg_S
 
-    def pass_thought_net(self, z_t0, z_t1, edge_index, n, f, g=None, batch=None, mode='val'):
+    def pass_thought_net(self, z_t0, z_t1, edge_index, n, f, batch=None, mode='val', plot_info = []):
         self.batch_size = torch.max(batch) + 1
         z_norm = torch.from_numpy(self.scaler.transform(z_t0.cpu())).float().to(self.device)
         z1_norm = torch.from_numpy(self.scaler.transform(z_t1.cpu())).float().to(self.device)
+        if f is not None:
+            f = torch.from_numpy(self.scaler_f.transform(f.cpu())).float().to(self.device)
 
         if mode == 'train':
             noise = self.noise_var * torch.randn_like(z_norm[n == 1])
-            z_norm[n == 1] = z_norm[n == 1] + noise
+            z_norm[n == 1] = z_norm[n == 1] + noise*z_norm[n == 1]
             noise = self.noise_var * torch.randn_like(z_norm[n == 2])
-            z_norm[n == 2] = z_norm[n == 2] + noise
+            z_norm[n == 2] = z_norm[n == 2] + noise*z_norm[n == 2]
 
         q = z_norm[:, :self.dim_q]
         v = z_norm[:, self.dim_q:]
@@ -173,9 +183,13 @@ class NodalGNN(pl.LightningModule):
         '''Encode'''
         x = self.encoder_node(x)
         edge_attr = self.encoder_edge(edge_attr)
+        if f is not None:
+            f = self.encoder_f(f)
 
         '''Process'''
         for i in range(self.passes):
+            if mode == 'eval':
+                plot_info.append(torch.norm(x, dim=1).reshape(-1, 1).clone())
             x_res, edge_attr_res = self.GraphNet(x, edge_index, edge_attr, f=f)
             x += x_res
             edge_attr += edge_attr_res
@@ -219,24 +233,23 @@ class NodalGNN(pl.LightningModule):
                     loss_variable = self.criterion(dzdt_net.reshape(dzdt.shape)[:, i], dzdt[:, i])
                     self.log(f"{mode}_loss_{variable}", loss_variable, prog_bar=True, on_step=False, on_epoch=True)
         torch.cuda.empty_cache()
-        return dzdt_net_b, loss
+        return dzdt_net_b, loss, plot_info
 
     def extrac_pass(self, batch, mode):
         # Extract data from DataGeometric
         if self.project_name == 'Beam_3D':
-            z_t0, z_t1, edge_index, n, f = batch.x, batch.y, batch.edge_index, batch.n[:, 0], batch.f
+            z_t0, z_t1, edge_index, n, f = batch.x, batch.y, batch.edge_index, batch.n[:,0], batch.f
         elif self.project_name == 'Beam_2D':
             z_t0, z_t1, edge_index, n, f = batch.x, batch.y, batch.edge_index, batch.n, batch.f
         else:
             z_t0, z_t1, edge_index, n, f = batch.x, batch.y, batch.edge_index, batch.n, None
 
-        dzdt_net, loss = self.pass_thought_net(z_t0, z_t1, edge_index, n, f, g=None,
-                                               batch=batch.batch, mode=mode)
-        return dzdt_net, loss
+        dzdt_net, loss, plot_info = self.pass_thought_net(z_t0, z_t1, edge_index, n, f, batch=batch.batch, mode=mode)
+        return dzdt_net, loss, plot_info
 
     def training_step(self, batch, batch_idx, g=None):
 
-        dzdt_net, loss = self.extrac_pass(batch, 'train')
+        dzdt_net, loss, _ = self.extrac_pass(batch, 'train')
         return loss
 
     def validation_step(self, batch, batch_idx, g=None):
@@ -246,18 +259,18 @@ class NodalGNN(pl.LightningModule):
 
     def predict_step(self, batch, batch_idx, g=None):
 
-        dzdt_net, loss = self.extrac_pass(batch, 'eval')
+        dzdt_net, loss, plot_info = self.extrac_pass(batch, 'eval')
         z_norm = torch.from_numpy(self.scaler.transform(batch.x.cpu())).float().to(self.device)
         z1_net = z_norm + self.dt * dzdt_net
         z1_net_denorm = torch.from_numpy(self.scaler.inverse_transform(z1_net.detach().to('cpu'))).float().to(
             self.device)
 
-        return z1_net_denorm, batch.y
+        return z1_net_denorm, batch.y, plot_info
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
         lr_scheduler = {
             'scheduler': torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=self.miles, gamma=self.gamma),
-            'monitor': 'val_loss'}
+            'monitor': 'train_loss'}
 
         return {'optimizer': optimizer, 'lr_scheduler': lr_scheduler}

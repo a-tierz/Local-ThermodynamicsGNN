@@ -49,7 +49,15 @@ class GraphDataset(Dataset):
         total_tensor = torch.cat([data.x for data in self.data], dim=0)
         scaler = MinMaxScaler(feature_range=(0, 1))
         scaler.fit(total_tensor)
-        return scaler
+
+        if self.dims['f'] == 0:
+            scaler_f = None
+        else:
+            total_tensor_f = torch.cat([data.f for data in self.data], dim=0)
+            scaler_f = MinMaxScaler(feature_range=(0, 1))
+            scaler_f.fit(total_tensor_f)
+
+        return scaler, scaler_f
 
 
 if __name__ == '__main__':
