@@ -10,8 +10,7 @@ from pytorch_lightning.loggers import WandbLogger
 from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor, EarlyStopping
 
 from src.dataLoader.dataset import GraphDataset
-# from src.gnn_nodal import NodalGNN
-from src.spnn import NodalGNN
+from src.gnn_nodal import NodalGNN
 from src.callbacks import RolloutCallback
 from src.utils.utils import str2bool
 
@@ -35,6 +34,7 @@ if __name__ == '__main__':
     parser.add_argument('--experiment_name', default='exp3', type=str, help='experiment output name tensorboard')
     args = parser.parse_args()  # Parse command-line arguments
 
+    pl.seed_everything(1)
     device = torch.device('cuda' if args.gpu and torch.cuda.is_available() else 'cpu')
 
     # Load dataset information from JSON file
@@ -56,7 +56,7 @@ if __name__ == '__main__':
     scaler = train_set.get_stats()
 
     # Set up experiment logging
-    name = f"SPNN_local_NumLayers{dInfo['model']['n_hidden']}_Passes{dInfo['model']['passes']}_lr{dInfo['model']['lr']}_noise{dInfo['model']['noise_var']}_lamda{dInfo['model']['lambda_d']}_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+    name = f"train_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
     # name = f"train_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
     save_folder = f'outputs/runs/{name}'
     wandb_logger = WandbLogger(name=name, project=dInfo['project_name'])

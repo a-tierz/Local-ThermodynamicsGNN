@@ -58,16 +58,12 @@ def roll_out(nodal_gnn, dataloader, device, radius_connectivity, dtset_type, gla
     try:
         for t, snap in enumerate(data):
             snap.x = z_denorm
-            # snap.x[:,3:]= z_denorm[:,3:]
             snap.edge_index = edge_index
             snap = snap.to(device)
             with torch.no_grad():
                 start_time = time.time()
-                z_denorm, z_t1, plot_info = nodal_gnn.predict_step(snap, 1)
+                z_denorm, z_t1, _ = nodal_gnn.predict_step(snap, 1)
                 cnt_gnn += time.time() - start_time
-                # if t in t_save:
-                #     plot_3D_mp(z_net, plot_info, t)
-                #     plot_info = []
             if dtset_type == 'fluid':
                 pos = z_denorm[:, :3].clone()
                 start_time = time.time()
@@ -116,7 +112,5 @@ def generate_results(plasticity_gnn, test_dataloader, dInfo, device, output_dir_
     else:
         video_plot_3D(z_net, z_gt, save_dir=save_dir_gif_pdc)
         plot_3D(z_net, z_gt, save_dir=save_dir_gif, var=-1)
-        # data = [sample for sample in test_dataloader]
-        # plot_image3D(z_net, z_gt, output_dir_exp, var=5, step=-1, n=data[0].n)
 
 

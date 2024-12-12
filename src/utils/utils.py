@@ -77,6 +77,14 @@ def generate_folder(output_dir_exp, path_dinfo, path_weights):
                     os.path.join(output_dir_exp, os.path.basename(path_weights)))
     return output_dir_exp
 
+def load_diff_weights(checkpoint, nodal_gnn):
+    old_state_dict = checkpoint['state_dict']
+    new_state_dict = nodal_gnn.state_dict()
+    updated_state_dict = {k: v for k, v in old_state_dict.items() if
+                          k in new_state_dict and v.shape == new_state_dict[k].shape}
+
+    new_state_dict.update(updated_state_dict)
+    return new_state_dict
 
 
 

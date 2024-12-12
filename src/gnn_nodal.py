@@ -43,9 +43,12 @@ class NodeModel(torch.nn.Module):
         super(NodeModel, self).__init__()
         self.n_hidden = n_hidden
         self.dim_hidden = dim_hidden
-        self.node_mlp = MLP(
-            # [2 * self.dim_hidden + dims['f']] + self.n_hidden * [self.dim_hidden] + [self.dim_hidden])
-            [2 * self.dim_hidden+int(1/2* self.dim_hidden)] + self.n_hidden * [self.dim_hidden] + [self.dim_hidden])
+        if dims['f'] == 0:
+            self.node_mlp = MLP(
+                [2 * self.dim_hidden + dims['f']] + self.n_hidden * [self.dim_hidden] + [self.dim_hidden])
+        else:
+            self.node_mlp = MLP(
+                [2 * self.dim_hidden+int(1/2* self.dim_hidden)] + self.n_hidden * [self.dim_hidden] + [self.dim_hidden])
 
     def forward(self, x, dest, edge_attr, f=None):
         out = scatter_mean(edge_attr, dest, dim=0, dim_size=x.size(0))
@@ -154,7 +157,7 @@ class NodalGNN(pl.LightningModule):
 
         return dzdt_net, loss_deg_E, loss_deg_S
 
-    def pass_thought_net(self, z_t0, z_t1, edge_index, n, f, g=None, batch=None, mode='val', plot_info = []):
+    def pass_thought_net(self, z_t0, z_t1, edge_index, n, f, batch=None, mode='val', plot_info = []):
         self.batch_size = torch.max(batch) + 1
         z_norm = torch.from_numpy(self.scaler.transform(z_t0.cpu())).float().to(self.device)
         z1_norm = torch.from_numpy(self.scaler.transform(z_t1.cpu())).float().to(self.device)
@@ -188,8 +191,6 @@ class NodalGNN(pl.LightningModule):
             if mode == 'eval':
                 plot_info.append(torch.norm(x, dim=1).reshape(-1, 1).clone())
             x_res, edge_attr_res = self.GraphNet(x, edge_index, edge_attr, f=f)
-            # if f is not None:
-            #     f = f*0
             x += x_res
             edge_attr += edge_attr_res
 
@@ -238,14 +239,12 @@ class NodalGNN(pl.LightningModule):
         # Extract data from DataGeometric
         if self.project_name == 'Beam_3D':
             z_t0, z_t1, edge_index, n, f = batch.x, batch.y, batch.edge_index, batch.n[:,0], batch.f
-            # z_t0, z_t1, edge_index, n, f = batch.x, batch.y, batch.edge_index, batch.n, batch.f
         elif self.project_name == 'Beam_2D':
             z_t0, z_t1, edge_index, n, f = batch.x, batch.y, batch.edge_index, batch.n, batch.f
         else:
             z_t0, z_t1, edge_index, n, f = batch.x, batch.y, batch.edge_index, batch.n, None
 
-        dzdt_net, loss, plot_info = self.pass_thought_net(z_t0, z_t1, edge_index, n, f, g=None,
-                                               batch=batch.batch, mode=mode)
+        dzdt_net, loss, plot_info = self.pass_thought_net(z_t0, z_t1, edge_index, n, f, batch=batch.batch, mode=mode)
         return dzdt_net, loss, plot_info
 
     def training_step(self, batch, batch_idx, g=None):
