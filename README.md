@@ -3,7 +3,10 @@
 
 # Graph neural networks informed locally by thermodynamics
 
+*Alicia Tierz, Iciar Alfaro, David González, Francisco Chinesta, and Elías Cueto*
+
 [![Project page](https://img.shields.io/badge/-Project%20page-blue)](https://amb.unizar.es/people/alicia-tierz/)
+[![Paper](https://img.shields.io/badge/Paper-PDF-red)](https://arxiv.org/pdf/2405.13093)
 
 </div>
 
@@ -20,23 +23,66 @@ For more information, please refer to the following:
 </div>
 
 
-## Setting it up
+## Methodology
 
-First, clone the project.
+### Key Features:
+- **Physics-Informed Bias**: Incorporates the GENERIC formalism for thermodynamic consistency.
+- **Local Implementation**: Maintains the local structure of GNNs to improve computational scalability.
+- **Encode-Process-Decode Architecture**: Implements a multi-layer perceptron-based pipeline for processing nodal and edge features.
 
+### Supported Scenarios:
+- Solid Mechanics: Simulates viscoelastic beam bending in both 2D and 3D.
+- Fluid Mechanics: Models fluid sloshing with dynamic particle-based connectivity.
+
+
+
+## Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/a-tierz/Local-ThermodynamicsGNN.git
+   cd Local-ThermodynamicsGNN
+   ```
+
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+
+
+## Usage
+
+Run the training script for any of the examples, only the beam3D dataset is provided in the repository, if you need more send a email to atierz@unizar.es:
 ```bash
-# clone project
-git clone https://github.com/a-tierz/Local-ThermodynamicsGNN
-cd ThermodynamicsGNN
+python main_train.py --dset_name dataset_Beam3D.json
 ```
 
-Then, install the needed dependencies. The code is implemented in [Pytorch](https://pytorch.org). _Note that this has been tested using Python 3.9_.
-
-```bash
-# install dependencies
-pip install numpy scipy matplotlib torch torch-geometric torch-scatter
- ```
-
-## How to run the code  
+Replace `data/jsonFiles/dataset_Beam3D.json` with the appropriate configuration file for your experiment.
 
 ### Test pretrained nets
+```bash
+python main_inference.py --dset_name dataset_Beam3D.json --pretrain_weights modelTest_3DBeam.ckpt
+```
+
+
+## Citation
+
+If you use this code or datasets in your research, please cite:
+
+```bibtex
+@misc{tierz2024graphneuralnetworksinformed,
+      title={Graph neural networks informed locally by thermodynamics}, 
+      author={Alicia Tierz and Iciar Alfaro and David González and Francisco Chinesta and Elías Cueto},
+      year={2024},
+      eprint={2405.13093},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2405.13093}, 
+}
+```
+### License
+
+This repository is licensed under the GNU License. See `LICENSE` for details.
+
+---
+
+For any questions or feedback, please contact **Alicia Tierz** at atierz@unizar.es
