@@ -39,12 +39,13 @@ For more information, please refer to the following:
 
 - Example rollout for the 3D viscoelastic beam bending:
 
-  <img src="data/resources/result_pdc_beam3D.gif" alt="Rollout Example" width="50%">
+  <img src="data/resources/result_pdc_beam3D.gif" alt="Rollout Example" width="70%">
 
 
 - Box plot comparing the relative RMSE and RRMSE error for the 3D viscoelastic beam bending. The yellow box represents the performance of our method (Local TIGNN):
 
-  ![3D Beam Box Plot](data/resources/results_beam3D.png)
+
+   <img src="data/resources/results_beam3D.png" alt="Rollout Example" width="70%">
 
 
 ## Installation
