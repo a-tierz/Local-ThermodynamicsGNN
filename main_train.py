@@ -26,7 +26,7 @@ if __name__ == '__main__':
 
     # Dataset Parameters
     parser.add_argument('--dset_dir', default='data', type=str, help='dataset directory')
-    parser.add_argument('--dset_name', default=r'dataset_Water3D.json', type=str, help='dataset directory')
+    parser.add_argument('--dset_name', default=r'dataset_Beam3D.json', type=str, help='dataset directory')
  
     # Save and plot options
     parser.add_argument('--output_dir', default='outputs', type=str, help='output directory')
