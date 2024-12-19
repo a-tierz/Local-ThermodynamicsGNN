@@ -19,7 +19,7 @@ For more information, please refer to the following:
 
 
 <div align="center">
-<img src="/outputs/epoch_150.gif" width="450"><img src="/outputs/result_pdc.gif" width="350">
+<img src="/data/resources/result_pdc.gif" width="450"><img src="/outputs/result_pdc.gif" width="350">
 </div>
 
 
@@ -35,6 +35,17 @@ For more information, please refer to the following:
 - Fluid Mechanics: Models fluid sloshing with dynamic particle-based connectivity.
 
 
+## Results
+
+- Example rollout for the 3D viscoelastic beam bending:
+
+  <img src="data/resources/result_pdc_beam3D.gif" alt="Rollout Example" width="50%">
+
+
+- Box plot comparing the relative RMSE and RRMSE error for the 3D viscoelastic beam bending. The yellow box represents the performance of our method (Local TIGNN):
+
+  ![3D Beam Box Plot](data/resources/results_beam3D.png)
+
 
 ## Installation
 
@@ -47,6 +58,13 @@ For more information, please refer to the following:
 2. Install dependencies:
    ```bash
    pip install -r requirements.txt
+   ```
+
+3. Install and initialize Weights & Biases:
+   ```bash
+   pip install wandb
+   wandb init
+   ```
 
 
 ## Usage

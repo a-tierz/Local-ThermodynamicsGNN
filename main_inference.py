@@ -16,11 +16,11 @@ if __name__ == '__main__':
 
     # Study Case
     parser.add_argument('--gpu', default=True, type=str2bool, help='GPU acceleration')
-    parser.add_argument('--pretrain_weights', default=r'epoch=598-val_loss=0.00.ckpt', type=str, help='name')
+    parser.add_argument('--pretrain_weights', default=r'pretrained_weights_beam3D.ckpt', type=str, help='name')
 
     # Dataset Parameters
     parser.add_argument('--dset_dir', default='data', type=str, help='dataset directory')
-    parser.add_argument('--dset_name', default=r'dataset_Beam2D.json', type=str, help='dataset directory')
+    parser.add_argument('--dset_name', default=r'dataset_Beam3D.json', type=str, help='dataset directory')
 
     # Save and plot options
     parser.add_argument('--output_dir', default='outputs', type=str, help='output directory')
