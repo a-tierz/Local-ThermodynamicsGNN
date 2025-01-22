@@ -7,6 +7,7 @@ import torch
 import numpy as np
 import open3d as o3d
 import time
+import pyvista as pv
 import plotly.graph_objs as go
 import matplotlib.pyplot as plt
 from matplotlib import animation
@@ -290,11 +291,11 @@ def plot_3D(z_net, z_gt, save_dir, var=5):
         ax2.plot([xb], [zb], [yb], 'w')
         ax3.plot([xb], [zb], [yb], 'w')
     # Scatter points
-    s1 = ax1.scatter(q1_net, q2_net, q3_net, c=var_net,
+    s1 = ax1.scatter(q1_net, q2_net, q3_net, c=var_net, s=100, alpha=0.5,
                      vmax=z_max, vmin=z_min)
-    s2 = ax2.scatter(q1_gt, q2_gt, q3_gt, c=var_gt, vmax=z_max,
+    s2 = ax2.scatter(q1_gt, q2_gt, q3_gt, c=var_gt, vmax=z_max, s=100, alpha=0.5,
                      vmin=z_min)
-    s3 = ax3.scatter(q1_net, q2_net, q3_net, c=var_error,
+    s3 = ax3.scatter(q1_net, q2_net, q3_net, c=var_error, s=100, alpha=0.5,
                      vmax=var_error_max, vmin=var_error_min)
 
     # Colorbar
@@ -323,11 +324,11 @@ def plot_3D(z_net, z_gt, save_dir, var=5):
         q1_gt, q2_gt, q3_gt = z_gt[snap, :, 0], z_gt[snap, :, 2], z_gt[snap, :, 1]
         var_net, var_gt = z_net[snap, :, var], z_gt[snap, :, var]
         var_error = var_gt - var_net
-        ax1.scatter(q1_net, q2_net, q3_net, c=var_net,
+        ax1.scatter(q1_net, q2_net, q3_net, c=var_net, s=100, alpha=0.5,
                     vmax=z_max, vmin=z_min)
-        ax2.scatter(q1_gt, q2_gt, q3_gt, c=var_gt, vmax=z_max,
+        ax2.scatter(q1_gt, q2_gt, q3_gt, c=var_gt, vmax=z_max, s=100, alpha=0.5,
                     vmin=z_min)
-        ax3.scatter(q1_net, q2_net, q3_net, c=var_error,
+        ax3.scatter(q1_net, q2_net, q3_net, c=var_error, s=100, alpha=0.5,
                     vmax=var_error_max, vmin=var_error_min)
         fig.savefig(os.path.join(r'/home/atierz/Documentos/experiments/Foam_visco/3D/frames/', f'beam_{snap}.png'))
         return fig,
