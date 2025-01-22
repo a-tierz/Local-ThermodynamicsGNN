@@ -8,7 +8,7 @@ from matplotlib import animation
 # from amb.metrics import rrmse_inf
 from torch_geometric.loader import DataLoader
 from src.utils.utils import print_error, generate_folder
-from src.utils.plots import plot_2D_image, plot_2D, plot_image3D, plotError, plot_3D, video_plot_3D, plot_3D_mp
+from src.utils.plots import plot_2D_image, plot_2D, plot_image3D, plotError, plot_3D, video_plot_3D, plot_3D_mp, plot_PyVista, plot_PyVista_comparativo
 from src.utils.utils import compute_connectivity
 from src.dataLoader.dataset import GraphDataset
 
@@ -83,7 +83,7 @@ def roll_out(nodal_gnn, dataloader, device, radius_connectivity, dtset_type, gla
 
     print(f'El tiempo tardado en el compute connectivity: {cnt_conet}')
     print(f'El tiempo tardado en la red: {cnt_gnn}')
-    return z_net, z_gt, t+1
+    return z_net, z_gt, t+1, snap.plot_info[0][0], snap.plot_info[0][1]
 
 
 def generate_results(plasticity_gnn, test_dataloader, dInfo, device, output_dir_exp, pahtDInfo, pathWeights):
@@ -91,10 +91,11 @@ def generate_results(plasticity_gnn, test_dataloader, dInfo, device, output_dir_
     output_dir_exp = generate_folder(output_dir_exp, pahtDInfo, pathWeights)
     save_dir_gif = os.path.join(output_dir_exp, f'result.gif')
     save_dir_gif_pdc = os.path.join(output_dir_exp, f'result_pdc.gif')
+    save_dir_gif_pyvista = os.path.join(output_dir_exp, f'result_pyvista.gif')
 
     # Make roll out
     start_time = time.time()
-    z_net, z_gt, t = roll_out(plasticity_gnn, test_dataloader, device, dInfo['dataset']['radius_connectivity'],
+    z_net, z_gt, t, celulas, conectividad = roll_out(plasticity_gnn, test_dataloader, device, dInfo['dataset']['radius_connectivity'],
                               dInfo['dataset']['type'])
     print(f'El tiempo tardado en el rollout: {time.time() - start_time}')
     filePath = os.path.join(output_dir_exp, 'metrics.txt')
@@ -110,7 +111,8 @@ def generate_results(plasticity_gnn, test_dataloader, dInfo, device, output_dir_
         plot_2D_image(z_net, z_gt, -1, 4, output_dir=output_dir_exp)
         plot_2D(z_net, z_gt, save_dir_gif, var=4)
     else:
-        video_plot_3D(z_net, z_gt, save_dir=save_dir_gif_pdc)
-        plot_3D(z_net, z_gt, save_dir=save_dir_gif, var=-1)
+        # video_plot_3D(z_net, z_gt, save_dir=save_dir_gif_pdc)
+        # plot_3D(z_net, z_gt, save_dir=save_dir_gif, var=-1)
+        plot_PyVista_comparativo(z_net, z_gt, celulas, conectividad, save_dir_gif_pyvista, var=6)
 
 

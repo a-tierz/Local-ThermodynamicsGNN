@@ -16,7 +16,7 @@ if __name__ == '__main__':
 
     # Study Case
     parser.add_argument('--gpu', default=True, type=str2bool, help='GPU acceleration')
-    parser.add_argument('--pretrain_weights', default=r'pretrained_weights_beam3D.ckpt', type=str, help='name')
+    parser.add_argument('--pretrain_weights', default=r'epoch=999-val_loss=127.98.ckpt', type=str, help='name')
 
     # Dataset Parameters
     parser.add_argument('--dset_dir', default='data', type=str, help='dataset directory')

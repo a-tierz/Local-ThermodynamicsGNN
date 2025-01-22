@@ -26,7 +26,7 @@ class RolloutCallback(pl.Callback):
     def on_validation_epoch_end(self, trainer, pl_module):
         if trainer.current_epoch > 0 and trainer.current_epoch%pl_module.rollout_freq == 0:
             try:
-                z_net, z_gt, t = roll_out(pl_module, self.dataloader, pl_module.device, pl_module.radius_connectivity, pl_module.dtset_type)
+                z_net, z_gt, t, celulas, conectividad = roll_out(pl_module, self.dataloader, pl_module.device, pl_module.radius_connectivity, pl_module.dtset_type)
 
                 save_dir = os.path.join(pl_module.save_folder, f'epoch_{trainer.current_epoch}.gif')
                 # plot_1D(z_net, z_gt, q_0, save_dir=save_dir, var=0)
@@ -40,7 +40,7 @@ class RolloutCallback(pl.Callback):
                 print('The rollout has failed')
 
     def on_train_end(self, trainer, pl_module):
-        z_net, z_gt, q_0 = roll_out(pl_module, self.dataloader, pl_module.device, pl_module.radius_connectivity, pl_module.dtset_type)
+        z_net, z_gt, q_0, celulas, conectividad = roll_out(pl_module, self.dataloader, pl_module.device, pl_module.radius_connectivity, pl_module.dtset_type)
         filePath = os.path.join(pl_module.save_folder, 'metrics.txt')
         save_dir = os.path.join(pl_module.save_folder, f'final_{trainer.current_epoch}.gif')
         with open(filePath, 'w') as f:

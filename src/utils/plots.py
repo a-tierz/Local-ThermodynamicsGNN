@@ -334,7 +334,7 @@ def plot_3D(z_net, z_gt, save_dir, var=5):
         return fig,
 
     anim = animation.FuncAnimation(fig, animate, frames=T, repeat=False)
-    writergif = animation.PillowWriter(fps=8)
+    writergif = animation.PillowWriter(fps=1)
 
     # Save as gif
     # save_dir = os.path.join(output_dir, 'beam.gif')
@@ -591,3 +591,129 @@ def plot_3D_mp(z_net, plot_info, frame):
     # save_dir = os.path.join(output_dir, 'beam.gif')
     save_dir = f'{frame}_messagePassing.gif'
     anim.save(save_dir, writer=writergif)
+
+
+def plot_PyVista(z_net, celulas, conectividad, save_dir, var=6):
+
+    plotter = pv.Plotter()
+    plotter.open_gif(save_dir, fps=2)
+    for i in range(z_net.shape[0] - 1):
+
+        malla = pv.UnstructuredGrid(celulas, np.full(len(conectividad), pv.CellType.HEXAHEDRON),
+                                    np.asarray(z_net[i, :, 0:3]))
+
+        malla["tensiones"] = np.asarray(z_net[i, :, var])
+        plotter.clear()
+        plotter.add_mesh(malla, scalars="tensiones", cmap="viridis", show_edges=True)
+        plotter.add_axes()
+        plotter.write_frame()
+
+    plotter.close()
+
+def plot_PyVista_comparativo(z_net, z_gt, celulas, conectividad, save_dir, var=6):
+    """
+    Genera un GIF con dos vigas (predicción vs ground truth) comparando sus campos de tensiones.
+
+    Args:
+        z_net (np.ndarray): Valores predichos por la red [time, nodos, variables].
+        z_gt (np.ndarray): Valores de ground truth [time, nodos, variables].
+        celulas (np.ndarray): Información de las celdas (conectividad).
+        conectividad (np.ndarray): Conectividad de la malla.
+        save_dir (str): Ruta donde se guardará el GIF.
+        var (int): Índice de la variable a graficar (tensiones).
+    """
+    plotter = pv.Plotter()
+    plotter.open_gif(save_dir, fps=2)
+    plotter.camera_position = [
+        (0, 0, 2),   # Posición de la cámara (10 unidades sobre el eje Z)
+        (0, 0, 0),    # Punto focal (mirando al origen)
+        (0, 1, 0),    # Vector "arriba" (dirección positiva del eje Y)
+    ]
+    length_beam = torch.max(z_gt[0,:,0])
+    # Iterar sobre cada instante de tiempo
+    for i in range(z_net.shape[0] - 1):
+        # Crear la malla predicha
+        malla_pred = pv.UnstructuredGrid(celulas,np.full(len(conectividad), pv.CellType.HEXAHEDRON), np.asarray(z_net[i, :, 0:3]))
+        malla_pred["tensiones"] = np.asarray(z_net[i, :, var])
+
+        # Crear la malla ground truth
+        malla_gt = pv.UnstructuredGrid(celulas, np.full(len(conectividad), pv.CellType.HEXAHEDRON),np.asarray(z_gt[i, :, 0:3]))
+        malla_gt["tensiones"] = np.asarray(z_gt[i, :, var])
+
+        # Limpiar la escena
+        plotter.clear()
+
+        # Añadir la malla ground truth
+        malla_gt.points[:, 0] -= (0.125+length_beam)  # Desplazamiento en X
+        plotter.add_mesh(malla_gt, scalars="tensiones", cmap="viridis", show_edges=True, opacity=0.9, label="Ground Truth",)
+
+        # Añadir la malla predicha desplazada en el eje X para diferenciarlas
+        malla_pred.points[:, 0] += 0.125  # Desplazamiento en X
+        plotter.add_mesh(malla_pred, scalars="tensiones", cmap="viridis", show_edges=True, opacity=0.9, label="Predicción")
+
+        # Añadir ejes y leyenda
+        # plotter.add_axes()
+        # plotter.add_legend(labels=[("Ground Truth", "viridis"), ("Predicción", "plasma")])
+
+        # Escribir el fotograma
+        plotter.write_frame()
+
+    plotter.close()
+
+
+def plot_PyVista_comparativo(z_net, z_gt, celulas, conectividad, save_dir, var=6):
+    """
+    Genera un GIF con dos subplots comparando los campos de tensiones de la predicción y el ground truth.
+
+    Args:
+        z_net (np.ndarray): Valores predichos por la red [time, nodos, variables].
+        z_gt (np.ndarray): Valores de ground truth [time, nodos, variables].
+        celulas (np.ndarray): Información de las celdas (conectividad).
+        conectividad (np.ndarray): Conectividad de la malla.
+        save_dir (str): Ruta donde se guardará el GIF.
+        var (int): Índice de la variable a graficar (tensiones).
+    """
+    # Configurar plotter con 1 fila y 2 columnas
+    plotter = pv.Plotter(shape=(1, 2), border=False)
+    plotter.open_gif(save_dir, fps=2)
+
+    # Iterar sobre cada instante de tiempo
+    for i in range(z_net.shape[0] - 1):
+        print(i)
+        # Crear la malla predicha
+        malla_pred = pv.UnstructuredGrid(celulas,np.full(len(conectividad), pv.CellType.HEXAHEDRON), np.asarray(z_net[i, :, 0:3]))
+        malla_pred["tensiones"] = np.asarray(z_net[i, :, var])
+
+        # Crear la malla ground truth
+        malla_gt = pv.UnstructuredGrid(celulas, np.full(len(conectividad), pv.CellType.HEXAHEDRON),np.asarray(z_gt[i, :, 0:3]))
+        malla_gt["tensiones"] = np.asarray(z_gt[i, :, var])
+
+        # Limpiar la escena
+        plotter.clear()
+
+        # Limpiar subplots antes de añadir nuevos datos
+        plotter.subplot(0, 0)
+        plotter.camera_position = [
+            (0, 0, 2),  # Posición de la cámara (10 unidades sobre el eje Z)
+            (0, 0, 0),  # Punto focal (mirando al origen)
+            (0, 1, 0),  # Vector "arriba" (dirección positiva del eje Y)
+        ]
+        plotter.add_mesh(malla_gt, scalars="tensiones", cmap="viridis", show_edges=True)
+        plotter.add_axes()
+        # plotter.add_text("Ground Truth", font_size=10)
+
+        plotter.subplot(0, 1)
+        plotter.camera_position = [
+            (0, 0, 2),  # Posición de la cámara (10 unidades sobre el eje Z)
+            (0, 0, 0),  # Punto focal (mirando al origen)
+            (0, 1, 0),  # Vector "arriba" (dirección positiva del eje Y)
+        ]
+        plotter.add_mesh(malla_pred, scalars="tensiones", cmap="viridis", show_edges=True)
+        plotter.add_axes()
+        plotter.add_text("Predicción", font_size=10)
+
+        # Escribir el fotograma al GIF
+        plotter.write_frame()
+
+    # Cerrar el plotter
+    plotter.close()

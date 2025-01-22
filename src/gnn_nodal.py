@@ -237,8 +237,8 @@ class NodalGNN(pl.LightningModule):
 
     def extrac_pass(self, batch, mode):
         # Extract data from DataGeometric
-        if self.project_name == 'Beam_3D':
-            z_t0, z_t1, edge_index, n, f = batch.x, batch.y, batch.edge_index, batch.n[:,0], batch.f
+        if self.project_name == 'Beam_3D_AR':
+            z_t0, z_t1, edge_index, n, f = batch.x, batch.y, batch.edge_index, batch.n, batch.f
         elif self.project_name == 'Beam_2D':
             z_t0, z_t1, edge_index, n, f = batch.x, batch.y, batch.edge_index, batch.n, batch.f
         else:
