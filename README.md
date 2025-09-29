@@ -102,6 +102,12 @@ If you use this code or datasets in your research, please cite:
 
 This repository is licensed under the GNU License. See `LICENSE` for details.
 
----
+
+### Acknowledgements
+This work was supported by the Spanish Ministry of Science and Innovation, AEI/10.13039/501100011033, through
+Grant number TED2021-130105B-I00 and by the Ministry for Digital Transformation and the Civil Service, through
+the ENIA 2022 Chairs for the creation of university-industry chairs in AI, through Grant TSI-100930-2023-1
+
+--- 
 
 For any questions or feedback, please contact **Alicia Tierz** at atierz@unizar.es
