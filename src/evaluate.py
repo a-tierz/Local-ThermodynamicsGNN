@@ -116,3 +116,117 @@ def generate_results(plasticity_gnn, test_dataloader, dInfo, device, output_dir_
         plot_PyVista_comparativo(z_net, z_gt, celulas, conectividad, save_dir_gif_pyvista, var=6)
 
 
+
+def  generate_results_recons(gnn, test_dataloader, dInfo, device, output_dir_exp, pahtDInfo, pathWeights):
+    # Generate output folder
+    output_dir_exp = generate_folder(output_dir_exp, pahtDInfo, pathWeights)
+    save_dir_gif = os.path.join(output_dir_exp, f'result.gif')
+    save_dir_gif_pdc = os.path.join(output_dir_exp, f'result_pdc.gif')
+    save_dir_gif_pyvista = os.path.join(output_dir_exp, f'result_pyvista.gif')
+
+    # Make roll out
+    start_time = time.time()
+
+    data = [sample for sample in test_dataloader]
+    snap = data[0].to(device)
+    z_net, z_t1, _ = gnn.predict_step(snap, 1)
+    z_gt = data[0].y[snap.n == 1, :].cpu().numpy()
+    z_net =z_net[snap.n == 1, :].cpu().numpy()
+    test_sample = data[0]
+
+    pos_x, pos_y, pos_z, vel_x_gt, vel_y_gt, vel_z_gt, e_gt = data[0].y[snap.n == 1, :].cpu().numpy().T
+    # pos_x, pos_y, pos_z, vel_x_gt, vel_y_gt, vel_z_gt, e_gt = z_net[snap.n == 1, :].cpu().numpy().T
+    _, _, _, vel_x_net, vel_y_net, vel_z_net, e_net = z_net.T
+
+
+    # Crear figura con una sola fila y tres columnas
+    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+
+    # Plot Velocity X
+    axes[0, 0].scatter(pos_x, vel_x_net, s=1, color="blue", label="Predicted")
+    axes[0, 0].scatter(pos_x, vel_x_gt, s=1, color="red", label="Ground Truth", alpha=0.5)
+    axes[0, 0].set_xlabel("Position X")
+    axes[0, 0].set_ylabel("Velocity X")
+    axes[0, 0].set_title("VELOCITY vs Position X")
+    axes[0, 0].legend()
+
+    # Plot Velocity Y
+    axes[0, 1].scatter(pos_y, vel_y_net, s=1, color="blue", label="Predicted")
+    axes[0, 1].scatter(pos_y, vel_y_gt, s=1, color="red", label="Ground Truth", alpha=0.5)
+    axes[0, 1].set_xlabel("Position Y")
+    axes[0, 1].set_ylabel("Velocity Y")
+    axes[0, 1].set_title("Velocity Y vs Position Y")
+    axes[0, 1].legend()
+
+    # Plot Velocity Z
+    axes[0, 2].scatter(pos_z, vel_z_net, s=1, color="blue", label="Predicted")
+    axes[0, 2].scatter(pos_z, vel_z_gt, s=1, color="red", label="Ground Truth", alpha=0.5)
+    axes[0, 2].set_xlabel("Position Z")
+    axes[0, 2].set_ylabel("Velocity Z")
+    axes[0, 2].set_title("Velocity Z vs Position Z")
+    axes[0, 2].legend()
+
+    # Plot Velocity Y vs Position X
+    axes[1, 0].scatter(pos_x, vel_y_net, s=1, color="blue", label="Predicted")
+    axes[1, 0].scatter(pos_x, vel_y_gt, s=1, color="red", label="Ground Truth", alpha=0.5)
+    axes[1, 0].set_xlabel("Position X")
+    axes[1, 0].set_ylabel("Velocity Y")
+    axes[1, 0].set_title("Velocity Y vs Position X")
+    axes[1, 0].legend()
+
+    # Plot Velocity Y vs Position Y
+    axes[1, 1].scatter(pos_y, vel_y_net, s=1, color="blue", label="Predicted")
+    axes[1, 1].scatter(pos_y, vel_y_gt, s=1, color="red", label="Ground Truth", alpha=0.5)
+    axes[1, 1].set_xlabel("Position Y")
+    axes[1, 1].set_ylabel("Velocity Y")
+    axes[1, 1].set_title("Velocity Y vs Position Y")
+    axes[1, 1].legend()
+
+    # Plot Velocity Y vs Position Z
+    axes[1, 2].scatter(pos_z, vel_y_net, s=1, color="blue", label="Predicted")
+    axes[1, 2].scatter(pos_z, vel_y_gt, s=1, color="red", label="Ground Truth", alpha=0.5)
+    axes[1, 2].set_xlabel("Position Z")
+    axes[1, 2].set_ylabel("Velocity Y")
+    axes[1, 2].set_title("Velocity Y vs Position Z")
+    axes[1, 2].legend()
+
+    plt.tight_layout()
+
+    # Guardar imagen
+    file_path = os.path.join(output_dir_exp, "velocities.png")
+    plt.savefig(file_path)
+    plt.close(fig)
+
+    state_variables = dInfo['dataset']['state_variables']
+    e = z_net - z_gt
+    gt = z_gt
+
+    error = {clave: [] for clave in state_variables}
+    L2_list = {clave: [] for clave in state_variables}
+
+    for i, sv in enumerate(state_variables):
+        L2 = ((e[ :, i] ** 2).sum() / (gt[:, i] ** 2).sum()) ** 0.5
+        L22 = np.mean(((e[ :, i] ** 2).sum() / (gt[ :, i] ** 2).sum())) ** 0.5
+        print(f'{sv}  L2: {L2}')
+
+        error[sv] = L22
+        L2_list[sv].extend([L2])
+
+    print(f'El tiempo tardado en el rollout: {time.time() - start_time}')
+    filePath = os.path.join(output_dir_exp, 'metrics.txt')
+    with open(filePath, 'w') as f:
+        error, L2_list = compute_error(z_net, z_gt, dInfo['dataset']['state_variables'])
+        lines = print_error(error)
+        f.write('\n'.join(lines))
+        print("[Test Evaluation Finished]\n")
+        f.close()
+    plotError(z_gt, z_net, L2_list, dInfo['dataset']['state_variables'], dInfo['dataset']['dataset_dim'], output_dir_exp)
+
+    if dInfo['project_name'] == 'Beam_2D':
+        plot_2D_image(z_net, z_gt, -1, 4, output_dir=output_dir_exp)
+        plot_2D(z_net, z_gt, save_dir_gif, var=4)
+    else:
+        # video_plot_3D(z_net, z_gt, save_dir=save_dir_gif_pdc)
+        # plot_3D(z_net, z_gt, save_dir=save_dir_gif, var=-1)
+        plot_PyVista_comparativo(z_net, z_gt, celulas, conectividad, save_dir_gif_pyvista, var=6)
+

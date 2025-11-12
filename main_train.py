@@ -8,12 +8,18 @@ import lightning.pytorch as pl
 from torch_geometric.loader import DataLoader
 from pytorch_lightning.loggers import WandbLogger
 from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor, EarlyStopping
+from lightning.pytorch.tuner import Tuner
 
 from src.dataLoader.dataset import GraphDataset
 from src.gnn_nodal import NodalGNN
+from src.gnn import GNN
 from src.callbacks import RolloutCallback
 from src.utils.utils import str2bool
 
+MODEL_CLASSES = {
+    'GNN': GNN,
+    'NodalGNN': NodalGNN,
+}
 
 if __name__ == '__main__':
 
@@ -23,10 +29,12 @@ if __name__ == '__main__':
     parser.add_argument('--gpu', default=True, type=str2bool, help='GPU acceleration')
     parser.add_argument('--transfer_learning', default=False, type=str2bool, help='GPU acceleration')
     parser.add_argument('--pretrain_weights', default=r'epoch=202-val_loss=0.00.ckpt', type=str, help='name')
+    parser.add_argument('--model', default='GNN', choices=MODEL_CLASSES.keys(), help='Model to train: GNN NodalGNN')
+
 
     # Dataset Parameters
     parser.add_argument('--dset_dir', default='data', type=str, help='dataset directory')
-    parser.add_argument('--dset_name', default=r'dataset_Beam3D.json', type=str, help='dataset directory')
+    parser.add_argument('--dset_name', default=r'dataset_Water3D.json', type=str, help='dataset directory')
  
     # Save and plot options
     parser.add_argument('--output_dir', default='outputs', type=str, help='output directory')
@@ -69,15 +77,17 @@ if __name__ == '__main__':
     rollout = RolloutCallback(test_dataloader)
 
     # Instantiate model
-    nodal_gnn = NodalGNN(train_set.dims, scaler, dInfo, save_folder)
-    print(nodal_gnn)
-    wandb_logger.watch(nodal_gnn)
+    model_class = MODEL_CLASSES[args.model]
+    model = model_class(train_set.dims, scaler, dInfo, save_folder)
+
+    print(model)
+    wandb_logger.watch(model)
 
     # Load pre-trained weights if transfer learning is enabled
     if args.transfer_learning:
         path_checkpoint = os.path.join(args.dset_dir, 'weights', args.pretrain_weights)
         checkpoint_ = torch.load(path_checkpoint, map_location=device)
-        nodal_gnn.load_state_dict(checkpoint_['state_dict'], strict=False)
+        model.load_state_dict(checkpoint_['state_dict'], strict=False)
 
     # Set up Trainer
     trainer = pl.Trainer(accelerator="gpu",
@@ -90,5 +100,9 @@ if __name__ == '__main__':
                          deterministic=True,
                          fast_dev_run=False)
 
-    trainer.fit(model=nodal_gnn, train_dataloaders=train_dataloader, val_dataloaders=val_dataloader)
+    # tuner = Tuner(trainer)
+    # lr_finder = tuner.lr_find(nodal_gnn, train_dataloaders=train_dataloader, val_dataloaders=val_dataloader)
+    # new_lr = lr_finder.suggestion()
+    # nodal_gnn.lr = new_lr
+    trainer.fit(model=model, train_dataloaders=train_dataloader, val_dataloaders=val_dataloader)
 

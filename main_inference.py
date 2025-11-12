@@ -8,19 +8,26 @@ import lightning.pytorch as pl
 from torch_geometric.loader import DataLoader
 from src.dataLoader.dataset import GraphDataset
 from src.gnn_nodal import NodalGNN
+from src.gnn import GNN
 from src.utils.utils import str2bool
-from src.evaluate import generate_results
+from src.evaluate import generate_results, generate_results_recons
+
+MODEL_CLASSES = {
+    'GNN': GNN,
+    'NodalGNN': NodalGNN,
+}
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Thermodynamics-informed Graph Neural Networks')
 
     # Study Case
     parser.add_argument('--gpu', default=True, type=str2bool, help='GPU acceleration')
-    parser.add_argument('--pretrain_weights', default=r'epoch=999-val_loss=127.98.ckpt', type=str, help='name')
+    parser.add_argument('--pretrain_weights', default=r'epoch=499-val_loss=0.00.ckpt', type=str, help='name')
+    parser.add_argument('--model', default='GNN', choices=MODEL_CLASSES.keys(), help='Model to train: GNN NodalGNN')
 
     # Dataset Parameters
     parser.add_argument('--dset_dir', default='data', type=str, help='dataset directory')
-    parser.add_argument('--dset_name', default=r'dataset_Beam3D.json', type=str, help='dataset directory')
+    parser.add_argument('--dset_name', default=r'dataset_Water3D.json', type=str, help='dataset directory')
 
     # Save and plot options
     parser.add_argument('--output_dir', default='outputs', type=str, help='output directory')
@@ -46,16 +53,16 @@ if __name__ == '__main__':
     scaler = train_set.get_stats()
 
     # Instantiate model
-    nodal_gnn = NodalGNN(train_set.dims, scaler, dInfo, output_dir_exp)
-    nodal_gnn.to(device)
-    load_name = args.pretrain_weights
-    load_path = os.path.join(args.dset_dir, 'weights', load_name)
-    checkpoint = torch.load(load_path, map_location='cuda')
-    nodal_gnn.load_state_dict(checkpoint['state_dict'])
-    nodal_gnn.eval()
+    model_class = MODEL_CLASSES[args.model]
+
+    path_checkpoint = os.path.join(args.dset_dir, 'weights', args.pretrain_weights)
+    model = model_class.load_from_checkpoint(path_checkpoint, dt_info=dInfo)
+    model.to(device)
+    model.eval()
 
     # Set Trainer
     trainer = pl.Trainer(accelerator="gpu",
                          profiler="simple")
 
-    generate_results(nodal_gnn, test_dataloader, dInfo, device, output_dir_exp, args.dset_name, args.pretrain_weights)
+    # generate_results(nodal_gnn, test_dataloader, dInfo, device, output_dir_exp, args.dset_name, args.pretrain_weights)
+    generate_results_recons(model, test_dataloader, dInfo, device, output_dir_exp, args.dset_name, args.pretrain_weights)
