@@ -10,7 +10,6 @@ from matplotlib import animation
 from torch_geometric.loader import DataLoader
 from src.utils.utils import print_error, generate_folder
 from src.utils.plots import plot_2D_image, plot_2D, plot_image3D, plotError, plot_3D, video_plot_3D, plot_3D_mp, plot_PyVista, plot_PyVista_comparativo, plot_velPos_gnn, plot_velocity_3D, plot_flow_comparison
-from src.utils.utils import compute_connectivity
 from src.dataLoader.dataset import GraphDataset
 from torch_geometric.nn import radius_graph
 
@@ -69,8 +68,6 @@ def roll_out(nodal_gnn, dataloader, device, radius_connectivity, dtset_type, gla
             if dtset_type == 'fluid':
                 pos = z_denorm[:, :3].clone()
                 start_time = time.time()
-                # edge_index = compute_connectivity(np.asarray(pos.cpu()), radius_connectivity, add_self_edges=False).to(
-                #     device)
                 edge_index = radius_graph(pos, r=radius_connectivity, loop=False, flow='source_to_target', max_num_neighbors=1000)
 
                 cnt_conet += time.time() - start_time
