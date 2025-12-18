@@ -6,7 +6,7 @@ import torch
 import lightning.pytorch as pl
 
 from torch_geometric.loader import DataLoader
-from src.dataLoader.dataset import GraphDataset
+from src.dataLoader.dataset import GraphDataset, GraphDataset_
 from src.gnn_nodal import NodalGNN
 from src.gnn import GNN
 from src.utils.utils import str2bool
@@ -22,7 +22,7 @@ if __name__ == '__main__':
 
     # Study Case
     parser.add_argument('--gpu', default=True, type=str2bool, help='GPU acceleration')
-    parser.add_argument('--pretrain_weights', default=r'train_2025-12-17_22-12-57_epoch=112-val_loss=3.89.ckpt', type=str, help='name')
+    parser.add_argument('--pretrain_weights', default=r'train_NodalGNN_2025-12-18_11-20-10_epoch=25-val_loss=7.52.ckpt', type=str, help='name')
     parser.add_argument('--model', default='NodalGNN', choices=MODEL_CLASSES.keys(), help='Model to train: GNN NodalGNN')
 
     # Dataset Parameters
@@ -56,6 +56,7 @@ if __name__ == '__main__':
     model_class = MODEL_CLASSES[args.model]
 
     path_checkpoint = os.path.join(args.dset_dir, 'weights', args.pretrain_weights)
+    # model = model_class.load_from_checkpoint(path_checkpoint, dt_info=dInfo)
     model = model_class.load_from_checkpoint(path_checkpoint, dt_info=dInfo, dims=train_set.dims, scaler=scaler, save_folder='')
     model.to(device)
     model.eval()
