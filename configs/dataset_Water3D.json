@@ -10,15 +10,7 @@
     "q_dim": 3,
     "q0_dim": 0,
     "g_dim": 0,
-    "state_variables": [
-      "COORD.COOR1",
-      "COORD.COOR2",
-      "COORD.COOR3",
-      "v1",
-      "v2",
-      "v3",
-      "  E"
-    ],
+    "state_variables": ["COORD.COOR1", "COORD.COOR2", "COORD.COOR3", "v1", "v2", "v3", "  E"],
     "datasetPaths": {
       "train": "V150_TIGNN_Glass_AR_rc009_dt1_train.pt",
       "val": "V150_TIGNN_Glass_AR_rc009_dt1_val.pt",
@@ -31,18 +23,12 @@
     "passes": 7,
     "seed": 1,
     "fixLr": true,
-    "lr": 2e-4,
+    "lr": 8e-5,
     "lambda_d": 10,
-    "noise_var": 1e-2,
+    "noise_var": 8e-4,
     "batch_size": 1,
     "max_epoch": 250,
-    "miles": [
-      120,
-      180,
-      240,
-      300,
-      400
-    ],
+    "miles": [120, 180, 240, 300, 400],
     "gamma": 3e-1,
     "rollout_freq": 5000
   }
