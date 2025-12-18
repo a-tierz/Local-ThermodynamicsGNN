@@ -7,7 +7,7 @@ import torch
 import numpy as np
 import open3d as o3d
 import time
-import pyvista as pv
+#import pyvista as pv
 import plotly.graph_objs as go
 import matplotlib.pyplot as plt
 from matplotlib import animation

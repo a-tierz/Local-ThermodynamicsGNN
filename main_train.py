@@ -10,7 +10,7 @@ from pytorch_lightning.loggers import WandbLogger
 from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor, EarlyStopping
 from lightning.pytorch.tuner import Tuner
 
-from src.dataLoader.dataset import GraphDataset, LMDBGraphDataset
+from src.dataLoader.dataset import GraphDataset
 from src.gnn_nodal import NodalGNN
 from src.gnn import GNN
 from src.callbacks import RolloutCallback

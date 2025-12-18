@@ -141,7 +141,7 @@ class NodalGNN(pl.LightningModule):
         M[:, torch.tril(self.ones) == 1] = m
 
         Ledges = torch.subtract(L, torch.transpose(L, 1, 2))
-        # Medges = torch.bmm(M, torch.transpose(M, 1, 2)) #/ torch.max(M)  # forzamos que la M sea SDP
+        Medges = torch.bmm(M, torch.transpose(M, 1, 2)) #/ torch.max(M)  # forzamos que la M sea SDP
 
         edges_diag = dest == src
         edges_neigh = src != dest

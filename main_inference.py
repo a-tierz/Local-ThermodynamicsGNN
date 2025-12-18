@@ -65,7 +65,7 @@ if __name__ == '__main__':
 
 
 
-    generate_results(model, test_dataloader, dInfo, device, output_dir_exp, args.dset_name, args.pretrain_weights)
+    generate_results(model, test_dataloader, dInfo, device, output_dir_exp, args.dinit_name, args.pretrain_weights)  
     
     #BUENO RECOSN generate_results_recons(model, trainer, test_dataloader, dInfo, scaler, output_dir_exp, args.dset_name, args.pretrain_weights)
 
