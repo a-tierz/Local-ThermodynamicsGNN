@@ -22,8 +22,8 @@ if __name__ == '__main__':
 
     # Study Case
     parser.add_argument('--gpu', default=True, type=str2bool, help='GPU acceleration')
-    parser.add_argument('--pretrain_weights', default=r'epoch=499-val_loss=0.00.ckpt', type=str, help='name')
-    parser.add_argument('--model', default='GNN', choices=MODEL_CLASSES.keys(), help='Model to train: GNN NodalGNN')
+    parser.add_argument('--pretrain_weights', default=r'train_2025-12-17_22-12-57_epoch=112-val_loss=3.89.ckpt', type=str, help='name')
+    parser.add_argument('--model', default='NodalGNN', choices=MODEL_CLASSES.keys(), help='Model to train: GNN NodalGNN')
 
     # Dataset Parameters
     parser.add_argument('--dset_dir', default='data', type=str, help='dataset directory')
@@ -45,7 +45,7 @@ if __name__ == '__main__':
 
     # Load datasets
     train_set = GraphDataset(dInfo, os.path.join(args.dset_dir, 'datasets', dInfo['dataset']['datasetPaths']['train']))
-    test_set = GraphDataset(dInfo, os.path.join(args.dset_dir, 'datasets', dInfo['dataset']['datasetPaths']['test']))
+    test_set = GraphDataset(dInfo, os.path.join(args.dset_dir, 'datasets', dInfo['dataset']['datasetPaths']['test']), length=40)
     train_dataloader = DataLoader(train_set, batch_size=dInfo['model']['batch_size'])
     test_dataloader = DataLoader(test_set, batch_size=1)
 
@@ -56,7 +56,7 @@ if __name__ == '__main__':
     model_class = MODEL_CLASSES[args.model]
 
     path_checkpoint = os.path.join(args.dset_dir, 'weights', args.pretrain_weights)
-    model = model_class.load_from_checkpoint(path_checkpoint, dt_info=dInfo)
+    model = model_class.load_from_checkpoint(path_checkpoint, dt_info=dInfo, dims=train_set.dims, scaler=scaler, save_folder='')
     model.to(device)
     model.eval()
 
@@ -64,5 +64,10 @@ if __name__ == '__main__':
     trainer = pl.Trainer(accelerator="gpu",
                          profiler="simple")
 
-    # generate_results(nodal_gnn, test_dataloader, dInfo, device, output_dir_exp, args.dset_name, args.pretrain_weights)
-    generate_results_recons(model, test_dataloader, dInfo, device, output_dir_exp, args.dset_name, args.pretrain_weights)
+
+
+    generate_results(model, test_dataloader, dInfo, device, output_dir_exp, args.dset_name, args.pretrain_weights)
+    
+    #BUENO RECOSN generate_results_recons(model, trainer, test_dataloader, dInfo, scaler, output_dir_exp, args.dset_name, args.pretrain_weights)
+
+    # generate_results_recons_1sample(model, test_dataloader, dInfo, device, output_dir_exp, args.dset_name, args.pretrain_weights)

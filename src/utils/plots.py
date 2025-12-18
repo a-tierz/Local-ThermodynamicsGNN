@@ -267,9 +267,9 @@ def plot_3D(z_net, z_gt, save_dir, var=5):
     ax2.set_xlabel('X'), ax2.set_ylabel('Y'), ax2.set_zlabel('Z')
     ax3.set_title('Thermodynamics-informed GNN error'), ax3.grid()
     ax3.set_xlabel('X'), ax3.set_ylabel('Y'), ax3.set_zlabel('Z')
-    ax1.view_init(elev=0., azim=90)
-    ax2.view_init(elev=0., azim=90)
-    ax3.view_init(elev=0., azim=90)
+    ax1.view_init(elev=0., azim=0)
+    ax2.view_init(elev=0., azim=0)
+    ax3.view_init(elev=0., azim=0)
 
     # Adjust ranges
     X, Y, Z = z_gt[:, :, 0].numpy(), z_gt[:, :, 1].numpy(), z_gt[:, :, 2].numpy()
@@ -330,11 +330,11 @@ def plot_3D(z_net, z_gt, save_dir, var=5):
                     vmin=z_min)
         ax3.scatter(q1_net, q2_net, q3_net, c=var_error, s=100, alpha=0.5,
                     vmax=var_error_max, vmin=var_error_min)
-        fig.savefig(os.path.join(r'/home/atierz/Documentos/experiments/Foam_visco/3D/frames/', f'beam_{snap}.png'))
+        # fig.savefig(os.path.join(r'/home/atierz/Documentos/code/Local-ThermodynamicsGNN/images', f'glass_{snap}.png'))
         return fig,
 
     anim = animation.FuncAnimation(fig, animate, frames=T, repeat=False)
-    writergif = animation.PillowWriter(fps=1)
+    writergif = animation.PillowWriter(fps=20)
 
     # Save as gif
     # save_dir = os.path.join(output_dir, 'beam.gif')
@@ -717,3 +717,139 @@ def plot_PyVista_comparativo(z_net, z_gt, celulas, conectividad, save_dir, var=6
 
     # Cerrar el plotter
     plotter.close()
+
+
+
+def plot_velPos_gnn(z_gt, z_net, file_path):
+
+    pos_x, pos_y, pos_z, vel_x_gt, vel_y_gt, vel_z_gt, e_gt = z_gt.T
+    _, _, _, vel_x_net, vel_y_net, vel_z_net, e_net = z_net.T
+
+    # Crear figura con una sola fila y tres columnas
+    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+
+    # Plot Velocity X
+    axes[0, 0].scatter(pos_x, vel_x_net, s=1, color="blue", label="Predicted")
+    axes[0, 0].scatter(pos_x, vel_x_gt, s=1, color="red", label="Ground Truth", alpha=0.5)
+    axes[0, 0].set_xlabel("Position X")
+    axes[0, 0].set_ylabel("Velocity X")
+    axes[0, 0].set_title("VELOCITY vs Position X")
+    axes[0, 0].legend()
+
+    # Plot Velocity Y
+    axes[0, 1].scatter(pos_y, vel_y_net, s=1, color="blue", label="Predicted")
+    axes[0, 1].scatter(pos_y, vel_y_gt, s=1, color="red", label="Ground Truth", alpha=0.5)
+    axes[0, 1].set_xlabel("Position Y")
+    axes[0, 1].set_ylabel("Velocity Y")
+    axes[0, 1].set_title("Velocity Y vs Position Y")
+    axes[0, 1].legend()
+
+    # Plot Velocity Z
+    axes[0, 2].scatter(pos_z, vel_z_net, s=1, color="blue", label="Predicted")
+    axes[0, 2].scatter(pos_z, vel_z_gt, s=1, color="red", label="Ground Truth", alpha=0.5)
+    axes[0, 2].set_xlabel("Position Z")
+    axes[0, 2].set_ylabel("Velocity Z")
+    axes[0, 2].set_title("Velocity Z vs Position Z")
+    axes[0, 2].legend()
+
+    # Plot Velocity Y vs Position X
+    axes[1, 0].scatter(pos_x, vel_y_net, s=1, color="blue", label="Predicted")
+    axes[1, 0].scatter(pos_x, vel_y_gt, s=1, color="red", label="Ground Truth", alpha=0.5)
+    axes[1, 0].set_xlabel("Position X")
+    axes[1, 0].set_ylabel("Velocity Y")
+    axes[1, 0].set_title("Velocity Y vs Position X")
+    axes[1, 0].legend()
+
+    # Plot Velocity Y vs Position Y
+    axes[1, 1].scatter(pos_y, vel_y_net, s=1, color="blue", label="Predicted")
+    axes[1, 1].scatter(pos_y, vel_y_gt, s=1, color="red", label="Ground Truth", alpha=0.5)
+    axes[1, 1].set_xlabel("Position Y")
+    axes[1, 1].set_ylabel("Velocity Y")
+    axes[1, 1].set_title("Velocity Y vs Position Y")
+    axes[1, 1].legend()
+
+    # Plot Velocity Y vs Position Z
+    axes[1, 2].scatter(pos_z, vel_y_net, s=1, color="blue", label="Predicted")
+    axes[1, 2].scatter(pos_z, vel_y_gt, s=1, color="red", label="Ground Truth", alpha=0.5)
+    axes[1, 2].set_xlabel("Position Z")
+    axes[1, 2].set_ylabel("Velocity Y")
+    axes[1, 2].set_title("Velocity Y vs Position Z")
+    axes[1, 2].legend()
+
+    plt.tight_layout()
+
+    # Guardar imagen        
+    plt.savefig(file_path)
+    plt.close(fig)
+
+
+def plot_velocity_3D(z_gt, z_net):
+    step=5
+    fig = plt.figure(figsize=(10, 10))
+    ax = fig.add_subplot(projection='3d')
+    # posiciones: (N,3)
+    x, y_, z = z_gt[:, 0], z_gt[:, 2], z_gt[:,1]
+    # velocidades
+    u_gt, v_gt, w_gt = z_gt[:,3], z_gt[:,5], z_gt[:,4]
+    u_pr, v_pr, w_pr = z_net[:,3], z_net[:,5], z_net[:,4]
+    # GT en azul
+    ax.quiver(x[::step], y_[::step], z[::step],
+            u_gt[::step], v_gt[::step], w_gt[::step],
+            length=0.02, normalize=True, alpha=0.4, color='blue')
+
+    # Predicción en rojo
+    ax.quiver(x[::step], y_[::step], z[::step],
+            u_pr[::step], v_pr[::step], w_pr[::step],
+            length=0.02, normalize=True, alpha=0.4, color='red')
+    sc = ax.scatter(z_gt[:, 0], z_gt[:, 2], z_gt[:, 1],
+                    s=8, alpha=0.8, c=z_net[:, 4])
+
+    ax.set_title("Flow direction comparison (GT: blue, Pred: red)")
+    ax.set_box_aspect([1,1,1])
+    ax.set_xlabel("X [m]")
+    ax.set_ylabel("Y [m]")
+    ax.set_zlabel("Z [m]")  
+    plt.show()
+
+def plot_flow_comparison(z_gt, z_net, n_variable, file_path):
+
+    pos = z_gt[:,:3]
+    v_gt, v_pred = z_gt[:,3:6], z_net[:,3:6]
+    speed_gt, speed_pred = z_gt[:,n_variable], z_net[:,n_variable]
+
+    fig = plt.figure(figsize=(14, 5))
+    # --- shared limits for color ---
+    vmin = min(speed_gt.min(), speed_pred.min())
+    vmax = max(speed_gt.max(), speed_pred.max())
+
+    # --- Panel A: GT ---
+    ax1 = fig.add_subplot(131, projection="3d")
+    sc1 = ax1.scatter(pos[:, 0], pos[:, 2], pos[:, 1],
+                      c=speed_gt, s=8, alpha=0.9, vmin=vmin, vmax=vmax)
+    fig.colorbar(sc1, ax=ax1, shrink=0.5)
+    ax1.set_title("Ground Truth (speed)")
+
+    # --- Panel B: Prediction ---
+    ax2 = fig.add_subplot(132, projection="3d")
+    sc2 = ax2.scatter(pos[:, 0], pos[:, 2], pos[:, 1],
+                      c=speed_pred, s=8, alpha=0.9, vmin=vmin, vmax=vmax)
+    fig.colorbar(sc2, ax=ax2, shrink=0.5)
+    ax2.set_title("Prediction (speed)")
+
+    # --- Panel C: Error map ---
+    error = np.linalg.norm(v_gt - v_pred, axis=1)
+    ax3 = fig.add_subplot(133, projection="3d")
+    sc3 = ax3.scatter(pos[:, 0], pos[:, 2], pos[:, 1],
+                      c=error, s=8, alpha=0.9)
+    fig.colorbar(sc3, ax=ax3, shrink=0.5)
+    ax3.set_title("|Prediction - GT|")
+
+    for ax in [ax1, ax2, ax3]:
+        ax.set_xlabel("X"); ax.set_ylabel("Y"); ax.set_zlabel("Z")
+        ax.set_box_aspect([1, 1, 1])
+
+    plt.tight_layout()
+    ax.view_init()
+    plt.savefig(file_path)
+    plt.close(fig)
+

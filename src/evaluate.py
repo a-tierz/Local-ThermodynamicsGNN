@@ -1,6 +1,7 @@
 import os
 import time
 import torch
+import json
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -8,9 +9,9 @@ from matplotlib import animation
 # from amb.metrics import rrmse_inf
 from torch_geometric.loader import DataLoader
 from src.utils.utils import print_error, generate_folder
-from src.utils.plots import plot_2D_image, plot_2D, plot_image3D, plotError, plot_3D, video_plot_3D, plot_3D_mp, plot_PyVista, plot_PyVista_comparativo
-from src.utils.utils import compute_connectivity
+from src.utils.plots import plot_2D_image, plot_2D, plot_image3D, plotError, plot_3D, video_plot_3D, plot_3D_mp, plot_PyVista, plot_PyVista_comparativo, plot_velPos_gnn, plot_velocity_3D, plot_flow_comparison
 from src.dataLoader.dataset import GraphDataset
+from torch_geometric.nn import radius_graph
 
 
 def compute_error(z_net, z_gt, state_variables):
@@ -67,8 +68,8 @@ def roll_out(nodal_gnn, dataloader, device, radius_connectivity, dtset_type, gla
             if dtset_type == 'fluid':
                 pos = z_denorm[:, :3].clone()
                 start_time = time.time()
-                edge_index = compute_connectivity(np.asarray(pos.cpu()), radius_connectivity, add_self_edges=False).to(
-                    device)
+                edge_index = radius_graph(pos, r=radius_connectivity, loop=False, flow='source_to_target', max_num_neighbors=1000)
+
                 cnt_conet += time.time() - start_time
             else:
                 edge_index = snap.edge_index
@@ -83,7 +84,7 @@ def roll_out(nodal_gnn, dataloader, device, radius_connectivity, dtset_type, gla
 
     print(f'El tiempo tardado en el compute connectivity: {cnt_conet}')
     print(f'El tiempo tardado en la red: {cnt_gnn}')
-    return z_net, z_gt, t+1, snap.plot_info[0][0], snap.plot_info[0][1]
+    return z_net, z_gt, t+1 #, snap.plot_info[0][0], snap.plot_info[0][1]
 
 
 def generate_results(plasticity_gnn, test_dataloader, dInfo, device, output_dir_exp, pahtDInfo, pathWeights):
@@ -95,8 +96,8 @@ def generate_results(plasticity_gnn, test_dataloader, dInfo, device, output_dir_
 
     # Make roll out
     start_time = time.time()
-    z_net, z_gt, t, celulas, conectividad = roll_out(plasticity_gnn, test_dataloader, device, dInfo['dataset']['radius_connectivity'],
-                              dInfo['dataset']['type'])
+    z_net, z_gt, t = roll_out(plasticity_gnn, test_dataloader, device, dInfo['dataset']['radius_connectivity'],
+                              dInfo['dataset']['type'])  #celulas, conectividad 
     print(f'El tiempo tardado en el rollout: {time.time() - start_time}')
     filePath = os.path.join(output_dir_exp, 'metrics.txt')
     with open(filePath, 'w') as f:
@@ -112,19 +113,18 @@ def generate_results(plasticity_gnn, test_dataloader, dInfo, device, output_dir_
         plot_2D(z_net, z_gt, save_dir_gif, var=4)
     else:
         # video_plot_3D(z_net, z_gt, save_dir=save_dir_gif_pdc)
-        # plot_3D(z_net, z_gt, save_dir=save_dir_gif, var=-1)
-        plot_PyVista_comparativo(z_net, z_gt, celulas, conectividad, save_dir_gif_pyvista, var=6)
+        plot_3D(z_net, z_gt, save_dir=save_dir_gif, var=-1)
+        # plot_PyVista_comparativo(z_net, z_gt, celulas, conectividad, save_dir_gif_pyvista, var=6)
 
 
 
-def  generate_results_recons(gnn, test_dataloader, dInfo, device, output_dir_exp, pahtDInfo, pathWeights):
+def  generate_results_recons_1sample(gnn, test_dataloader, dInfo, device, output_dir_exp, pahtDInfo, pathWeights):
     # Generate output folder
     output_dir_exp = generate_folder(output_dir_exp, pahtDInfo, pathWeights)
     save_dir_gif = os.path.join(output_dir_exp, f'result.gif')
     save_dir_gif_pdc = os.path.join(output_dir_exp, f'result_pdc.gif')
     save_dir_gif_pyvista = os.path.join(output_dir_exp, f'result_pyvista.gif')
 
-    # Make roll out
     start_time = time.time()
 
     data = [sample for sample in test_dataloader]
@@ -134,68 +134,23 @@ def  generate_results_recons(gnn, test_dataloader, dInfo, device, output_dir_exp
     z_net =z_net[snap.n == 1, :].cpu().numpy()
     test_sample = data[0]
 
-    pos_x, pos_y, pos_z, vel_x_gt, vel_y_gt, vel_z_gt, e_gt = data[0].y[snap.n == 1, :].cpu().numpy().T
-    # pos_x, pos_y, pos_z, vel_x_gt, vel_y_gt, vel_z_gt, e_gt = z_net[snap.n == 1, :].cpu().numpy().T
-    _, _, _, vel_x_net, vel_y_net, vel_z_net, e_net = z_net.T
+    fig = plt.figure(figsize=(8, 8))
+    ax = fig.add_subplot(projection="3d")
+    sc = ax.scatter(z_gt[:, 0], z_gt[:, 2], z_gt[:, 1],
+                s=8, alpha=0.8, c=z_net[:, 4])
+    ax.set_xlabel("X [m]")
+    ax.set_ylabel("Y [m]")
+    ax.set_zlabel("Z [m]")    
+    ax.set_box_aspect([1, 1, 1])
+    plt.colorbar(sc, ax=ax)
 
 
-    # Crear figura con una sola fila y tres columnas
-    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+    z_gt = data[0].y[snap.n == 1, :].cpu().numpy()
+    i = 0
+    file_path = os.path.join(output_dir_exp, f'{str(i)}_velocities.png')
 
-    # Plot Velocity X
-    axes[0, 0].scatter(pos_x, vel_x_net, s=1, color="blue", label="Predicted")
-    axes[0, 0].scatter(pos_x, vel_x_gt, s=1, color="red", label="Ground Truth", alpha=0.5)
-    axes[0, 0].set_xlabel("Position X")
-    axes[0, 0].set_ylabel("Velocity X")
-    axes[0, 0].set_title("VELOCITY vs Position X")
-    axes[0, 0].legend()
+    plot_velPos_gnn(z_gt, z_net, file_path)
 
-    # Plot Velocity Y
-    axes[0, 1].scatter(pos_y, vel_y_net, s=1, color="blue", label="Predicted")
-    axes[0, 1].scatter(pos_y, vel_y_gt, s=1, color="red", label="Ground Truth", alpha=0.5)
-    axes[0, 1].set_xlabel("Position Y")
-    axes[0, 1].set_ylabel("Velocity Y")
-    axes[0, 1].set_title("Velocity Y vs Position Y")
-    axes[0, 1].legend()
-
-    # Plot Velocity Z
-    axes[0, 2].scatter(pos_z, vel_z_net, s=1, color="blue", label="Predicted")
-    axes[0, 2].scatter(pos_z, vel_z_gt, s=1, color="red", label="Ground Truth", alpha=0.5)
-    axes[0, 2].set_xlabel("Position Z")
-    axes[0, 2].set_ylabel("Velocity Z")
-    axes[0, 2].set_title("Velocity Z vs Position Z")
-    axes[0, 2].legend()
-
-    # Plot Velocity Y vs Position X
-    axes[1, 0].scatter(pos_x, vel_y_net, s=1, color="blue", label="Predicted")
-    axes[1, 0].scatter(pos_x, vel_y_gt, s=1, color="red", label="Ground Truth", alpha=0.5)
-    axes[1, 0].set_xlabel("Position X")
-    axes[1, 0].set_ylabel("Velocity Y")
-    axes[1, 0].set_title("Velocity Y vs Position X")
-    axes[1, 0].legend()
-
-    # Plot Velocity Y vs Position Y
-    axes[1, 1].scatter(pos_y, vel_y_net, s=1, color="blue", label="Predicted")
-    axes[1, 1].scatter(pos_y, vel_y_gt, s=1, color="red", label="Ground Truth", alpha=0.5)
-    axes[1, 1].set_xlabel("Position Y")
-    axes[1, 1].set_ylabel("Velocity Y")
-    axes[1, 1].set_title("Velocity Y vs Position Y")
-    axes[1, 1].legend()
-
-    # Plot Velocity Y vs Position Z
-    axes[1, 2].scatter(pos_z, vel_y_net, s=1, color="blue", label="Predicted")
-    axes[1, 2].scatter(pos_z, vel_y_gt, s=1, color="red", label="Ground Truth", alpha=0.5)
-    axes[1, 2].set_xlabel("Position Z")
-    axes[1, 2].set_ylabel("Velocity Y")
-    axes[1, 2].set_title("Velocity Y vs Position Z")
-    axes[1, 2].legend()
-
-    plt.tight_layout()
-
-    # Guardar imagen
-    file_path = os.path.join(output_dir_exp, "velocities.png")
-    plt.savefig(file_path)
-    plt.close(fig)
 
     state_variables = dInfo['dataset']['state_variables']
     e = z_net - z_gt
@@ -230,3 +185,94 @@ def  generate_results_recons(gnn, test_dataloader, dInfo, device, output_dir_exp
         # plot_3D(z_net, z_gt, save_dir=save_dir_gif, var=-1)
         plot_PyVista_comparativo(z_net, z_gt, celulas, conectividad, save_dir_gif_pyvista, var=6)
 
+
+def  generate_results_recons(gnn, trainer, test_dataloader, dInfo, scaler, output_dir_exp, pahtDInfo, pathWeights):
+    # Generate output folder
+    output_dir_exp = generate_folder(output_dir_exp, pahtDInfo, pathWeights)
+    save_dir_gif = os.path.join(output_dir_exp, f'result.gif')
+    save_dir_gif_pdc = os.path.join(output_dir_exp, f'result_pdc.gif')
+    save_dir_gif_pyvista = os.path.join(output_dir_exp, f'result_pyvista.gif')
+
+    start_time = time.time()
+
+    preds = trainer.predict(gnn, dataloaders=test_dataloader)
+
+    for i, pred in enumerate(preds):    
+        z_net, z_gt, _, n = pred
+
+        z_net =z_net[n == 1, :].cpu().numpy()
+        z_gt =z_gt[n == 1, :].cpu().numpy() 
+
+        plot_flow_comparison(z_gt, z_net, n_variable=4, file_path=os.path.join(output_dir_exp, f'{str(i)}_velocities3D.png'))
+        plot_velPos_gnn(z_gt, z_net, os.path.join(output_dir_exp, f'{str(i)}_velocities.png'))
+
+    plot_velocity_3D(z_gt, z_net)
+
+    all_z_net = torch.cat([p[0][:,3:] for p in preds], dim=0)
+    all_z_gt = torch.cat([p[1][:,3:] for p in preds], dim=0)
+
+
+    metrics = compute_fluid_metrics(all_z_net, all_z_gt, scaler[0])
+
+     
+    with open(os.path.join(output_dir_exp, 'metrics.json'), "w") as f:
+        json.dump(metrics, f, indent=4)
+
+
+
+def compute_fluid_metrics(y_hat, y, scaler):
+    eps = 1e-12
+    metrics = {}
+
+    # ----------------------------------------------
+    # 1) MAE y RMSE (seguro, estable, físico)
+    # ----------------------------------------------
+    e = y_hat - y
+    metrics["MAE_vx"], metrics["MAE_vy"], metrics["MAE_vz"], metrics["MAE_E"] = torch.mean(torch.abs(e), dim=0).tolist()
+    metrics["RMSE_vx"], metrics["RMSE_vy"], metrics["RMSE_vz"], metrics["RMSE_E"] = torch.sqrt(torch.mean(e**2, dim=0)).tolist()
+
+    # ----------------------------------------------
+    # 2) Error relativo basado en rango físico
+    # (sin divisiones explosivas)
+    # ----------------------------------------------
+    v_range = (scaler.data_max_[3:6].max() - scaler.data_min_[3:6].min())
+    metrics["Rel_vx_range"] = torch.mean(torch.abs(e[:,0]) / v_range).item()
+    metrics["Rel_vy_range"] = torch.mean(torch.abs(e[:,1]) / v_range).item()
+    metrics["Rel_vz_range"] = torch.mean(torch.abs(e[:,2]) / v_range).item()
+
+    metrics["Rel_E_range"] = torch.mean(torch.abs(e[:,3]) / scaler.data_max_[6]).item()
+
+    # ----------------------------------------------
+    # 3) Error vectorial: magnitud y dirección
+    # ----------------------------------------------
+    v_hat = y_hat[:, :3]
+    v_gt = y[:, :3]
+
+    mag_hat = torch.norm(v_hat, dim=1)
+    mag_gt = torch.norm(v_gt, dim=1)
+    mask = mag_gt > mag_gt.max()*0.25
+
+    metrics["MAE_speed"] = torch.mean(torch.abs(mag_hat - mag_gt)).item()
+    metrics["RMSE_speed"] = torch.sqrt(torch.mean((mag_hat - mag_gt)**2)).item()
+
+    # ----------------------------------------------
+    # 4) Error angular (seguro y estable)
+    # ----------------------------------------------
+    dot = (v_hat[mask] * v_gt[mask]).sum(dim=1)
+    denom = (mag_hat[mask] * mag_gt[mask] + eps)
+    cosine = torch.clamp(dot / denom, -1 + eps, 1 - eps)
+
+    angle = torch.acos(cosine)
+    metrics["mean_angle_deg"] = (angle.mean() * 180 / torch.pi).item()
+    metrics["median_angle_deg"] = (angle.median() * 180 / torch.pi).item()
+    metrics["angle_points_used"] = int(mask.sum())
+
+    # ----------------------------------------------
+    # 5) Conservación global (energía total)
+    # ----------------------------------------------
+    E_pred = y_hat[:,3].sum()
+    E_true = y[:,3].sum()
+
+    metrics["Energy_rel_error_total"] = torch.abs(E_pred - E_true).item() / (E_true.item() + eps)
+
+    return metrics
