@@ -33,30 +33,27 @@ if __name__ == '__main__':
 
 
     # Dataset Parameters
-    parser.add_argument('--dset_dir', default='data', type=str, help='dataset directory')
     parser.add_argument('--dset_name', default=r'dataset_Water3D.json', type=str, help='dataset directory')
  
     # Save and plot options
     parser.add_argument('--output_dir', default='outputs', type=str, help='output directory')
-    parser.add_argument('--output_dir_exp', default=r'outputs/', type=str, help='output directory')
-    parser.add_argument('--experiment_name', default='exp3', type=str, help='experiment output name tensorboard')
     args = parser.parse_args()  # Parse command-line arguments
 
     pl.seed_everything(1)
     device = torch.device('cuda' if args.gpu and torch.cuda.is_available() else 'cpu')
 
     # Load dataset information from JSON file
-    f = open(os.path.join(args.dset_dir, 'jsonFiles', args.dset_name))
+    f = open(os.path.join('configs', args.dset_name))
     dInfo = json.load(f)
 
     # Set random seed
     pl.seed_everything(dInfo['model']['seed'], workers=True)
 
-    train_set = GraphDataset(dInfo, os.path.join(args.dset_dir, 'datasets', dInfo['dataset']['datasetPaths']['train']), length=816)
+    train_set = GraphDataset(dInfo, os.path.join('data', 'datasets', dInfo['dataset']['datasetPaths']['train']), length=816)
     train_dataloader = DataLoader(train_set, batch_size=dInfo['model']['batch_size'], num_workers=8,  persistent_workers=True, pin_memory=False, prefetch_factor=2)
-    val_set = GraphDataset(dInfo, os.path.join(args.dset_dir, 'datasets', dInfo['dataset']['datasetPaths']['val']), length=90)
+    val_set = GraphDataset(dInfo, os.path.join('data', 'datasets', dInfo['dataset']['datasetPaths']['val']), length=90)
     val_dataloader = DataLoader(val_set, batch_size=dInfo['model']['batch_size'], pin_memory=True, num_workers=2)
-    test_set = GraphDataset(dInfo, os.path.join(args.dset_dir, 'datasets', dInfo['dataset']['datasetPaths']['test']), length=60)
+    test_set = GraphDataset(dInfo, os.path.join('data', 'datasets', dInfo['dataset']['datasetPaths']['test']), length=60)
     test_dataloader = DataLoader(test_set, batch_size=1)
 
     # Calculate scaling statistics
@@ -64,7 +61,6 @@ if __name__ == '__main__':
 
     # Set up experiment logging
     name = f"train_{args.model}_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
-    # name = f"train_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
     save_folder = f'outputs/runs/{name}'
     wandb_logger = WandbLogger(name=name, project=dInfo['project_name'])
     wandb_logger.log_hyperparams(dInfo)

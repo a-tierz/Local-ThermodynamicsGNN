@@ -853,3 +853,20 @@ def plot_flow_comparison(z_gt, z_net, n_variable, file_path):
     plt.savefig(file_path)
     plt.close(fig)
 
+
+def plot_3D_scatter(pos, values, title="3D Scatter", file_path=None):
+    fig = plt.figure(figsize=(8, 8))
+    ax = fig.add_subplot(projection="3d")
+    sc = ax.scatter(pos[:, 0], pos[:, 2], pos[:, 1],
+                s=8, alpha=0.8, c=values)
+    ax.set_xlabel("X [m]")
+    ax.set_ylabel("Y [m]")
+    ax.set_zlabel("Z [m]")    
+    ax.set_box_aspect([1, 1, 1])
+    plt.colorbar(sc, ax=ax)
+    ax.set_title(title)
+    if file_path:
+        plt.savefig(file_path)
+        plt.close(fig)
+    else:
+        plt.show()

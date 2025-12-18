@@ -26,9 +26,8 @@ if __name__ == '__main__':
     parser.add_argument('--model', default='NodalGNN', choices=MODEL_CLASSES.keys(), help='Model to train: GNN NodalGNN')
 
     # Dataset Parameters
-    parser.add_argument('--dset_dir', default='data', type=str, help='dataset directory')
-    parser.add_argument('--dset_name', default=r'dataset_Water3D.json', type=str, help='dataset directory')
-
+    parser.add_argument('--dinit_name', default=r'dataset_Water3D.json', type=str, help='name of the dataset config file')
+    parser.add_argument('--dset_dir', default='data', type=str, help='dataset directory') # This argument is still needed for actual dataset files
     # Save and plot options
     parser.add_argument('--output_dir', default='outputs', type=str, help='output directory')
     parser.add_argument('--output_dir_exp', default=r'outputs/experimentes/', type=str, help='output directory')
@@ -40,12 +39,12 @@ if __name__ == '__main__':
                                   args.experiment_name + '_' + datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
 
     # Load dataset information from JSON file
-    f = open(os.path.join(args.dset_dir, 'jsonFiles', args.dset_name))
+    f = open(os.path.join('configs', args.dinit_name))
     dInfo = json.load(f)
 
     # Load datasets
-    train_set = GraphDataset(dInfo, os.path.join(args.dset_dir, 'datasets', dInfo['dataset']['datasetPaths']['train']))
-    test_set = GraphDataset(dInfo, os.path.join(args.dset_dir, 'datasets', dInfo['dataset']['datasetPaths']['test']), length=40)
+    train_set = GraphDataset(dInfo, os.path.join('data', 'datasets', dInfo['dataset']['datasetPaths']['train']))
+    test_set = GraphDataset(dInfo, os.path.join('data', 'datasets', dInfo['dataset']['datasetPaths']['test']), length=40)
     train_dataloader = DataLoader(train_set, batch_size=dInfo['model']['batch_size'])
     test_dataloader = DataLoader(test_set, batch_size=1)
 
@@ -55,7 +54,7 @@ if __name__ == '__main__':
     # Instantiate model
     model_class = MODEL_CLASSES[args.model]
 
-    path_checkpoint = os.path.join(args.dset_dir, 'weights', args.pretrain_weights)
+    path_checkpoint = os.path.join('data', 'weights', args.pretrain_weights)
     model = model_class.load_from_checkpoint(path_checkpoint, dt_info=dInfo, dims=train_set.dims, scaler=scaler, save_folder='')
     model.to(device)
     model.eval()
