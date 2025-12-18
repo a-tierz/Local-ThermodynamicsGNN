@@ -3,8 +3,8 @@ import torch
 import torch.nn as nn
 import numpy as np
 import lightning.pytorch as pl
-from torch_scatter import scatter_add, scatter_mean
 from torch_geometric.utils import add_self_loops
+from torch_scatter import scatter_add, scatter_mean
 
 
 # Multi Layer Perceptron (MLP) class
@@ -141,7 +141,7 @@ class NodalGNN(pl.LightningModule):
         M[:, torch.tril(self.ones) == 1] = m
 
         Ledges = torch.subtract(L, torch.transpose(L, 1, 2))
-        Medges = torch.bmm(M, torch.transpose(M, 1, 2)) / torch.max(M)  # forzamos que la M sea SDP
+        Medges = torch.bmm(M, torch.transpose(M, 1, 2)) #/ torch.max(M)  # forcamos que la M sea SDP
 
         edges_diag = dest == src
         edges_neigh = src != dest
@@ -158,17 +158,17 @@ class NodalGNN(pl.LightningModule):
         return dzdt_net, loss_deg_E, loss_deg_S
 
     def pass_thought_net(self, z_t0, z_t1, edge_index, n, f, batch=None, mode='val', plot_info = []):
-        self.batch_size = torch.max(batch) + 1
+        # self.batch_size = torch.max(batch) + 1
         z_norm = torch.from_numpy(self.scaler.transform(z_t0.cpu())).float().to(self.device)
         z1_norm = torch.from_numpy(self.scaler.transform(z_t1.cpu())).float().to(self.device)
         if f is not None:
             f = torch.from_numpy(self.scaler_f.transform(f.cpu())).float().to(self.device)
 
         if mode == 'train':
-            noise = self.noise_var * torch.randn_like(z_norm[n == 0])
-            z_norm[n == 0] = z_norm[n == 0] + noise*z_norm[n == 0]
-            noise = self.noise_var * torch.randn_like(z_norm[n == 2])
-            z_norm[n == 2] = z_norm[n == 2] + noise*z_norm[n == 2]
+            noise = self.noise_var * torch.randn_like(z_norm)
+            z_norm = z_norm + noise
+            #noise = self.noise_var * torch.randn_like(z_norm[n == 2])
+            #z_norm[n == 2] = z_norm[n == 2] + noise*z_norm[n == 2]
 
         q = z_norm[:, :self.dim_q]
         v = z_norm[:, self.dim_q:]
@@ -208,7 +208,11 @@ class NodalGNN(pl.LightningModule):
 
         dzdt_net, loss_deg_E, loss_deg_S = self.decoder(x, edge_attr, edge_index[0, :], edge_index[1, :])
 
-        dzdt = (z1_norm - z_norm) / self.dt
+        if isinstance(self.dt, torch.Tensor) and self.dt.dim() > 0:
+            dt_nodes = self.dt[batch].reshape(-1, 1)
+            dzdt = (z1_norm - z_norm) / dt_nodes
+        else:
+            dzdt = (z1_norm - z_norm) / self.dt
 
         if self.project_name == 'Glass3D':
             # Cojemos las particulas del glass de gt y no las predecimos
@@ -223,15 +227,15 @@ class NodalGNN(pl.LightningModule):
         loss = self.lambda_d * loss_z + (loss_deg_E + loss_deg_S)
 
         if mode != 'eval':
-            self.log(f"{mode}_loss", loss, prog_bar=True, on_step=False, on_epoch=True)
+            self.log(f"{mode}_loss", loss, prog_bar=True, on_step=False, on_epoch=True, batch_size=self.batch_size)
             if mode == 'val':
-                self.log(f"{mode}_deg_E", loss_deg_E, prog_bar=False, on_step=False, on_epoch=True)
-                self.log(f"{mode}_deg_S", loss_deg_S, prog_bar=False, on_step=False, on_epoch=True)
+                self.log(f"{mode}_deg_E", loss_deg_E, prog_bar=False, on_step=False, on_epoch=True, batch_size=self.batch_size)
+                self.log(f"{mode}_deg_S", loss_deg_S, prog_bar=False, on_step=False, on_epoch=True, batch_size=self.batch_size)
 
             if self.state_variables is not None:
                 for i, variable in enumerate(self.state_variables):
                     loss_variable = self.criterion(dzdt_net.reshape(dzdt.shape)[:, i], dzdt[:, i])
-                    self.log(f"{mode}_loss_{variable}", loss_variable, prog_bar=True, on_step=False, on_epoch=True)
+                    self.log(f"{mode}_loss_{variable}", loss_variable, prog_bar=True, on_step=False, on_epoch=True, batch_size=self.batch_size)
         torch.cuda.empty_cache()
         return dzdt_net_b, loss, plot_info
 
@@ -242,7 +246,7 @@ class NodalGNN(pl.LightningModule):
         elif self.project_name == 'Beam_2D':
             z_t0, z_t1, edge_index, n, f = batch.x, batch.y, batch.edge_index, batch.n, batch.f
         else:
-            z_t0, z_t1, edge_index, n, f = batch.x, batch.y, batch.edge_index, batch.n, None
+            z_t0, z_t1, edge_index, n, f, self.dt = batch.x, batch.y, batch.edge_index, batch.n, None, batch.dt
 
         dzdt_net, loss, plot_info = self.pass_thought_net(z_t0, z_t1, edge_index, n, f, batch=batch.batch, mode=mode)
         return dzdt_net, loss, plot_info

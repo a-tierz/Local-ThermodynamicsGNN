@@ -10,7 +10,7 @@ from pytorch_lightning.loggers import WandbLogger
 from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor, EarlyStopping
 from lightning.pytorch.tuner import Tuner
 
-from src.dataLoader.dataset import GraphDataset
+from src.dataLoader.dataset import GraphDataset, LMDBGraphDataset
 from src.gnn_nodal import NodalGNN
 from src.gnn import GNN
 from src.callbacks import RolloutCallback
@@ -27,9 +27,9 @@ if __name__ == '__main__':
 
     # Study Case
     parser.add_argument('--gpu', default=True, type=str2bool, help='GPU acceleration')
-    parser.add_argument('--transfer_learning', default=False, type=str2bool, help='GPU acceleration')
-    parser.add_argument('--pretrain_weights', default=r'epoch=202-val_loss=0.00.ckpt', type=str, help='name')
-    parser.add_argument('--model', default='GNN', choices=MODEL_CLASSES.keys(), help='Model to train: GNN NodalGNN')
+    parser.add_argument('--transfer_learning', default=True, type=str2bool, help='GPU acceleration')
+    parser.add_argument('--pretrain_weights', default=r'train_NodalGNN_2025-12-17_22-12-52_epoch=36-val_loss=3.70.ckpt', type=str, help='name')
+    parser.add_argument('--model', default='NodalGNN', choices=MODEL_CLASSES.keys(), help='Model to train: GNN NodalGNN')
 
 
     # Dataset Parameters
@@ -52,11 +52,10 @@ if __name__ == '__main__':
     # Set random seed
     pl.seed_everything(dInfo['model']['seed'], workers=True)
 
-    # Load datasets
-    train_set = GraphDataset(dInfo, os.path.join(args.dset_dir, 'datasets', dInfo['dataset']['datasetPaths']['train']))
-    train_dataloader = DataLoader(train_set, batch_size=dInfo['model']['batch_size'])
-    val_set = GraphDataset(dInfo, os.path.join(args.dset_dir, 'datasets', dInfo['dataset']['datasetPaths']['val']))
-    val_dataloader = DataLoader(val_set, batch_size=dInfo['model']['batch_size'])
+    train_set = GraphDataset(dInfo, os.path.join(args.dset_dir, 'datasets', dInfo['dataset']['datasetPaths']['train']), length=816)
+    train_dataloader = DataLoader(train_set, batch_size=dInfo['model']['batch_size'], num_workers=8,  persistent_workers=True, pin_memory=False, prefetch_factor=2)
+    val_set = GraphDataset(dInfo, os.path.join(args.dset_dir, 'datasets', dInfo['dataset']['datasetPaths']['val']), length=90)
+    val_dataloader = DataLoader(val_set, batch_size=dInfo['model']['batch_size'], pin_memory=True, num_workers=2)
     test_set = GraphDataset(dInfo, os.path.join(args.dset_dir, 'datasets', dInfo['dataset']['datasetPaths']['test']), length=60)
     test_dataloader = DataLoader(test_set, batch_size=1)
 
@@ -64,15 +63,16 @@ if __name__ == '__main__':
     scaler = train_set.get_stats()
 
     # Set up experiment logging
-    name = f"train_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+    name = f"train_{args.model}_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
     # name = f"train_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
     save_folder = f'outputs/runs/{name}'
     wandb_logger = WandbLogger(name=name, project=dInfo['project_name'])
+    wandb_logger.log_hyperparams(dInfo)
 
     # Set up callbacks
     early_stop = EarlyStopping(monitor="val_loss", min_delta=0.00, patience=200, verbose=True, mode="min")
-    checkpoint = ModelCheckpoint(dirpath=save_folder, filename='{epoch}-{val_loss:.2f}', monitor='val_loss',
-                                 save_top_k=3)
+    checkpoint = ModelCheckpoint(dirpath=save_folder, filename='{name}_{epoch}-{val_loss:.2f}', monitor='val_loss',
+                                 save_top_k=3, save_last=True)
     lr_monitor = LearningRateMonitor(logging_interval='epoch')
     rollout = RolloutCallback(test_dataloader)
 
@@ -86,7 +86,7 @@ if __name__ == '__main__':
     # Load pre-trained weights if transfer learning is enabled
     if args.transfer_learning:
         path_checkpoint = os.path.join(args.dset_dir, 'weights', args.pretrain_weights)
-        checkpoint_ = torch.load(path_checkpoint, map_location=device)
+        checkpoint_ = torch.load(path_checkpoint, map_location=device, weights_only=False)
         model.load_state_dict(checkpoint_['state_dict'], strict=False)
 
     # Set up Trainer

@@ -1,0 +1,60 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+debug_env/
+.env
+
+# IDEs
+.vscode/
+.idea/
+
+# Datasets & Large Files
+data/datasets/
+*.pt
+*.csv
+*.txt
+!requirements.txt
+*.zip
+*.rar
+*.tar.gz
+
+# Model Weights & Logs
+outputs/
+weights/
+*.ckpt
+*.pth
+wandb/
+
+# Media and Visualizations
+images/
+plots/
+*.gif
+*.png
+*.jpg
+*.jpeg
+*.mp4
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
