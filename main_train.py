@@ -27,8 +27,8 @@ if __name__ == '__main__':
 
     # Study Case
     parser.add_argument('--gpu', default=True, type=str2bool, help='GPU acceleration')
-    parser.add_argument('--transfer_learning', default=True, type=str2bool, help='GPU acceleration')
-    parser.add_argument('--pretrain_weights', default=r'train_NodalGNN_2025-12-17_22-12-52_epoch=36-val_loss=3.70.ckpt', type=str, help='name')
+    parser.add_argument('--transfer_learning', default=False, type=str2bool, help='GPU acceleration')
+    parser.add_argument('--pretrain_weights', default=r'train_NodalGNN_2025-12-17_23-52-06_epoch=99-val_loss=3.45.ckpt', type=str, help='name')
     parser.add_argument('--model', default='NodalGNN', choices=MODEL_CLASSES.keys(), help='Model to train: GNN NodalGNN')
 
 

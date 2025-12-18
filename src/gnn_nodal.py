@@ -141,7 +141,7 @@ class NodalGNN(pl.LightningModule):
         M[:, torch.tril(self.ones) == 1] = m
 
         Ledges = torch.subtract(L, torch.transpose(L, 1, 2))
-        Medges = torch.bmm(M, torch.transpose(M, 1, 2)) #/ torch.max(M)  # forcamos que la M sea SDP
+        # Medges = torch.bmm(M, torch.transpose(M, 1, 2)) #/ torch.max(M)  # forzamos que la M sea SDP
 
         edges_diag = dest == src
         edges_neigh = src != dest
@@ -167,8 +167,10 @@ class NodalGNN(pl.LightningModule):
         if mode == 'train':
             noise = self.noise_var * torch.randn_like(z_norm)
             z_norm = z_norm + noise
-            #noise = self.noise_var * torch.randn_like(z_norm[n == 2])
-            #z_norm[n == 2] = z_norm[n == 2] + noise*z_norm[n == 2]
+            # noise = self.noise_var * torch.randn_like(z_norm[n == 1])
+            # z_norm[n == 1] = z_norm[n == 1] + noise*z_norm[n == 1]
+            # noise = self.noise_var * torch.randn_like(z_norm[n == 2])
+            # z_norm[n == 2] = z_norm[n == 2] + noise*z_norm[n == 2]
 
         q = z_norm[:, :self.dim_q]
         v = z_norm[:, self.dim_q:]
@@ -208,6 +210,7 @@ class NodalGNN(pl.LightningModule):
 
         dzdt_net, loss_deg_E, loss_deg_S = self.decoder(x, edge_attr, edge_index[0, :], edge_index[1, :])
 
+        
         if isinstance(self.dt, torch.Tensor) and self.dt.dim() > 0:
             dt_nodes = self.dt[batch].reshape(-1, 1)
             dzdt = (z1_norm - z_norm) / dt_nodes
@@ -236,7 +239,8 @@ class NodalGNN(pl.LightningModule):
                 for i, variable in enumerate(self.state_variables):
                     loss_variable = self.criterion(dzdt_net.reshape(dzdt.shape)[:, i], dzdt[:, i])
                     self.log(f"{mode}_loss_{variable}", loss_variable, prog_bar=True, on_step=False, on_epoch=True, batch_size=self.batch_size)
-        torch.cuda.empty_cache()
+        else:
+            torch.cuda.empty_cache()
         return dzdt_net_b, loss, plot_info
 
     def extrac_pass(self, batch, mode):

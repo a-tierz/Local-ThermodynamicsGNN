@@ -22,7 +22,7 @@ if __name__ == '__main__':
 
     # Study Case
     parser.add_argument('--gpu', default=True, type=str2bool, help='GPU acceleration')
-    parser.add_argument('--pretrain_weights', default=r'train_2025-12-17_22-12-57_epoch=112-val_loss=3.89.ckpt', type=str, help='name')
+    parser.add_argument('--pretrain_weights', default=r'train_NodalGNN_2025-12-18_11-20-10_epoch=25-val_loss=7.52.ckpt', type=str, help='name')
     parser.add_argument('--model', default='NodalGNN', choices=MODEL_CLASSES.keys(), help='Model to train: GNN NodalGNN')
 
     # Dataset Parameters
