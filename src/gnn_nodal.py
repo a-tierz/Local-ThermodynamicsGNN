@@ -9,13 +9,16 @@ from torch_scatter import scatter_add, scatter_mean
 
 # Multi Layer Perceptron (MLP) class
 class MLP(torch.nn.Module):
-    def __init__(self, layer_vec):
+    def __init__(self, layer_vec, last_act=None):
         super(MLP, self).__init__()
         self.layers = nn.ModuleList()
         for k in range(len(layer_vec) - 1):
             layer = nn.Linear(layer_vec[k], layer_vec[k + 1])
             self.layers.append(layer)
-            self.layers.append(nn.SiLU()) if k != len(layer_vec) - 2 else None
+            if k != len(layer_vec) - 2:
+                self.layers.append(nn.SiLU())
+            elif last_act is not None:
+                self.layers.append(last_act)
 
     def forward(self, x):
         for layer in self.layers:
@@ -109,9 +112,9 @@ class NodalGNN(pl.LightningModule):
         self.decoder_S = MLP([dim_hidden] + n_hidden * [dim_hidden] + [self.dim_z])
 
         self.decoder_L = MLP([dim_hidden * 3] + n_hidden * [dim_hidden] * 2 + [
-            int(self.dim_z * (self.dim_z + 1) / 2 - self.dim_z)])
+            int(self.dim_z * (self.dim_z + 1) / 2 - self.dim_z)], last_act=nn.Tanh())
         self.decoder_M = MLP(
-            [dim_hidden * 3] + n_hidden * [dim_hidden] * 2 + [int(self.dim_z * (self.dim_z + 1) / 2)])
+            [dim_hidden * 3] + n_hidden * [dim_hidden] * 2 + [int(self.dim_z * (self.dim_z + 1) / 2)], last_act=nn.Tanh())
 
         self.ones = torch.ones(self.dim_z, self.dim_z)
         self.scaler, self.scaler_f  = scaler
@@ -141,7 +144,7 @@ class NodalGNN(pl.LightningModule):
         M[:, torch.tril(self.ones) == 1] = m
 
         Ledges = torch.subtract(L, torch.transpose(L, 1, 2))
-        # Medges = torch.bmm(M, torch.transpose(M, 1, 2)) #/ torch.max(M)  # forzamos que la M sea SDP
+        Medges = torch.bmm(M, torch.transpose(M, 1, 2)) #/ torch.max(M)  # forzamos que la M sea SDP
 
         edges_diag = dest == src
         edges_neigh = src != dest
@@ -226,11 +229,11 @@ class NodalGNN(pl.LightningModule):
             dzdt_net_b = dzdt_net.reshape(dzdt.shape)
 
         loss_z = self.criterion(dzdt_net, dzdt)
-
         loss = self.lambda_d * loss_z + (loss_deg_E + loss_deg_S)
 
         if mode != 'eval':
             self.log(f"{mode}_loss", loss, prog_bar=True, on_step=False, on_epoch=True, batch_size=self.batch_size)
+            self.log(f"{mode}_loss_z_raw", loss_z, prog_bar=True, on_step=False, on_epoch=True, batch_size=self.batch_size)
             if mode == 'val':
                 self.log(f"{mode}_deg_E", loss_deg_E, prog_bar=False, on_step=False, on_epoch=True, batch_size=self.batch_size)
                 self.log(f"{mode}_deg_S", loss_deg_S, prog_bar=False, on_step=False, on_epoch=True, batch_size=self.batch_size)
@@ -273,10 +276,14 @@ class NodalGNN(pl.LightningModule):
         z1_net_denorm = torch.from_numpy(self.scaler.inverse_transform(z1_net.detach().to('cpu'))).float().to(
             self.device)
 
+        # Debug: check for stability
+        if batch_idx % 10 == 0:
+            print(f"Rollout Step {batch_idx} | Max(dzdt): {dzdt_net.abs().max():.4e}")
+
         return z1_net_denorm, batch.y, plot_info
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr, weight_decay=1e-4)
         lr_scheduler = {
             'scheduler': torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=self.miles, gamma=self.gamma),
             'monitor': 'train_loss'}
