@@ -36,6 +36,7 @@ if __name__ == '__main__':
     parser.add_argument('--dset_name', default=r'dataset_Water3D.json', type=str, help='dataset directory')
  
     # Save and plot options
+    parser.add_argument('--dset_dir', default='configs', type=str, help='dataset directory')
     parser.add_argument('--output_dir', default='outputs', type=str, help='output directory')
     args = parser.parse_args()  # Parse command-line arguments
 
@@ -49,17 +50,13 @@ if __name__ == '__main__':
     # Set random seed
     pl.seed_everything(dInfo['model']['seed'], workers=True)
 
-    train_set = GraphDataset(dInfo, os.path.join('data', 'datasets', dInfo['dataset']['datasetPaths']['train']), length=816)
+    train_set = GraphDataset(dInfo, os.path.join('data', 'datasets', dInfo['dataset']['datasetPaths']['train']))
     train_dataloader = DataLoader(train_set, batch_size=dInfo['model']['batch_size'], num_workers=8,  persistent_workers=True, pin_memory=False, prefetch_factor=2)
-    val_set = GraphDataset(dInfo, os.path.join('data', 'datasets', dInfo['dataset']['datasetPaths']['val']), length=90)
+    val_set = GraphDataset(dInfo, os.path.join('data', 'datasets', dInfo['dataset']['datasetPaths']['val']))
     val_dataloader = DataLoader(val_set, batch_size=dInfo['model']['batch_size'], pin_memory=True, num_workers=2)
     test_set = GraphDataset(dInfo, os.path.join('data', 'datasets', dInfo['dataset']['datasetPaths']['test']), length=60)
     test_dataloader = DataLoader(test_set, batch_size=1)
 
-    # Calculate scaling statistics
-    scaler = train_set.get_stats()
-
-    # Set up experiment logging
     name = f"train_{args.model}_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
     save_folder = f'outputs/runs/{name}'
     wandb_logger = WandbLogger(name=name, project=dInfo['project_name'])
@@ -67,7 +64,7 @@ if __name__ == '__main__':
 
     # Set up callbacks
     early_stop = EarlyStopping(monitor="val_loss", min_delta=0.00, patience=200, verbose=True, mode="min")
-    checkpoint = ModelCheckpoint(dirpath=save_folder, filename='{name}_{epoch}-{val_loss:.2f}', monitor='val_loss',
+    checkpoint = ModelCheckpoint(dirpath=save_folder, filename=name'_{epoch}-{val_loss:.2f}', monitor='val_loss',
                                  save_top_k=3, save_last=True)
     lr_monitor = LearningRateMonitor(logging_interval='epoch')
     rollout = RolloutCallback(test_dataloader)
