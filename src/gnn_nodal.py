@@ -168,12 +168,10 @@ class NodalGNN(pl.LightningModule):
             f = torch.from_numpy(self.scaler_f.transform(f.cpu())).float().to(self.device)
 
         if mode == 'train':
-            noise = self.noise_var * torch.randn_like(z_norm)
-            z_norm = z_norm + noise
-            # noise = self.noise_var * torch.randn_like(z_norm[n == 1])
-            # z_norm[n == 1] = z_norm[n == 1] + noise*z_norm[n == 1]
-            # noise = self.noise_var * torch.randn_like(z_norm[n == 2])
-            # z_norm[n == 2] = z_norm[n == 2] + noise*z_norm[n == 2]
+            noise = self.noise_var * torch.randn_like(z_norm[n == 1])
+            z_norm[n == 1] = z_norm[n == 1] + noise*z_norm[n == 1]
+            noise = self.noise_var * torch.randn_like(z_norm[n == 2])
+            z_norm[n == 2] = z_norm[n == 2] + noise*z_norm[n == 2]
 
         q = z_norm[:, :self.dim_q]
         v = z_norm[:, self.dim_q:]

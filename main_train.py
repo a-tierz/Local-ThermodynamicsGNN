@@ -64,7 +64,7 @@ if __name__ == '__main__':
 
     # Set up callbacks
     early_stop = EarlyStopping(monitor="val_loss", min_delta=0.00, patience=200, verbose=True, mode="min")
-    checkpoint = ModelCheckpoint(dirpath=save_folder, filename=name'_{epoch}-{val_loss:.2f}', monitor='val_loss',
+    checkpoint = ModelCheckpoint(dirpath=save_folder, filename=name+'_{epoch}-{val_loss:.2f}', monitor='val_loss',
                                  save_top_k=3, save_last=True)
     lr_monitor = LearningRateMonitor(logging_interval='epoch')
     rollout = RolloutCallback(test_dataloader)
