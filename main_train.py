@@ -57,6 +57,10 @@ if __name__ == '__main__':
     test_set = GraphDataset(dInfo, os.path.join('data', 'datasets', dInfo['dataset']['datasetPaths']['test']), length=60)
     test_dataloader = DataLoader(test_set, batch_size=1)
 
+    # Calculate scaling statistics
+    scaler = train_set.get_stats()
+
+    # Set up experiment logging
     name = f"train_{args.model}_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
     save_folder = f'outputs/runs/{name}'
     wandb_logger = WandbLogger(name=name, project=dInfo['project_name'])
@@ -75,6 +79,7 @@ if __name__ == '__main__':
 
     print(model)
     wandb_logger.watch(model)
+
 
     # Load pre-trained weights if transfer learning is enabled
     if args.transfer_learning:
