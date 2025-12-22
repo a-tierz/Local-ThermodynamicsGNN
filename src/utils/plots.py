@@ -267,9 +267,9 @@ def plot_3D(z_net, z_gt, save_dir, var=5):
     ax2.set_xlabel('X'), ax2.set_ylabel('Y'), ax2.set_zlabel('Z')
     ax3.set_title('Thermodynamics-informed GNN error'), ax3.grid()
     ax3.set_xlabel('X'), ax3.set_ylabel('Y'), ax3.set_zlabel('Z')
-    ax1.view_init(elev=0., azim=0)
-    ax2.view_init(elev=0., azim=0)
-    ax3.view_init(elev=0., azim=0)
+    ax1.view_init(elev=0., azim=90)
+    ax2.view_init(elev=0., azim=90)
+    ax3.view_init(elev=0., azim=90)
 
     # Adjust ranges
     X, Y, Z = z_gt[:, :, 0].numpy(), z_gt[:, :, 1].numpy(), z_gt[:, :, 2].numpy()
@@ -330,7 +330,7 @@ def plot_3D(z_net, z_gt, save_dir, var=5):
                     vmin=z_min)
         ax3.scatter(q1_net, q2_net, q3_net, c=var_error, s=100, alpha=0.5,
                     vmax=var_error_max, vmin=var_error_min)
-        # fig.savefig(os.path.join(r'/home/atierz/Documentos/code/Local-ThermodynamicsGNN/images', f'glass_{snap}.png'))
+        fig.savefig(os.path.join(r'/home/atierz/Documentos/code/Local-ThermodynamicsGNN/images', f'glass_{snap}.png'))
         return fig,
 
     anim = animation.FuncAnimation(fig, animate, frames=T, repeat=False)
@@ -430,7 +430,7 @@ def generatePlot2(i_size, j_size, particleList, variableList, tensorData1, tenso
             ax1.legend()
 
 
-def plotError(gt, z_net, L2_list, state_variables, dataset_dim, output_dir_exp):
+def plotError(gt, z_net, L2_list, state_variables, dataset_dim, output_dir_exp, n=0):
     n_nodes = gt.shape[1]
 
     fig = plt.figure(figsize=(20, 20))
@@ -445,7 +445,7 @@ def plotError(gt, z_net, L2_list, state_variables, dataset_dim, output_dir_exp):
         ax2 = fig.add_subplot(len(state_variables), 2, i * 2 + 2)
         ax2.set_title('Error L2'), ax2.grid()
         ax2.plot(L2_list[name], color='purple', label=f'{name} GT')
-    plt.savefig(os.path.join(output_dir_exp, 'L2_error.png'))
+    plt.savefig(os.path.join(output_dir_exp, f'L2_error_{str(n)}.png'))
 
     if dataset_dim == 2:
         generatePlot2(2, 4, [0, int(n_nodes / 3) - 1, int(2 * n_nodes / 3) - 1, -1], [0, 1], gt, z_net.numpy(),
