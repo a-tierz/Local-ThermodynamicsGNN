@@ -9,6 +9,20 @@ from sklearn import neighbors
 import datetime
 
 
+
+import random
+
+def set_seed(seed):
+    """
+    Set the random seed for reproducibility.
+    """
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+
 def str2bool(v):
     # Code from : https://stackoverflow.com/questions/15008758/parsing-boolean-values-with-argparse
 

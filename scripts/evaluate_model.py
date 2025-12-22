@@ -13,7 +13,7 @@ from src.gnn_nodal import NodalGNN
 from src.gnn import GNN
 from src.dataLoader.dataset import GraphDataset
 from src.evaluate import compute_error
-from src.utils.utils import generate_folder
+from src.utils.utils import generate_folder, set_seed
 from src.utils.plots import plotError, plot_2D, plot_3D, plot_2D_image
 from torch_geometric.nn import radius_graph
 
@@ -26,6 +26,10 @@ def load_model(weights_path, config_path, device):
     """Load a model from checkpoint and configuration."""
     with open(config_path, 'r') as f:
         dInfo = json.load(f)
+
+    # Set seed for reproducibility
+    seed = dInfo['model'].get('seed', 42)
+    set_seed(seed)
     
     ckpt_dir = os.path.dirname(weights_path)
     potential_scaler = os.path.join(ckpt_dir, 'scaler.pkl')
