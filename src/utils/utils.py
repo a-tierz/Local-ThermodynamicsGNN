@@ -1,6 +1,7 @@
 """utils.py"""
 
 import os
+import random
 import shutil
 import numpy as np
 import argparse
@@ -8,9 +9,6 @@ import torch
 from sklearn import neighbors
 import datetime
 
-
-
-import random
 
 def set_seed(seed):
     """
@@ -22,6 +20,8 @@ def set_seed(seed):
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
 def str2bool(v):
     # Code from : https://stackoverflow.com/questions/15008758/parsing-boolean-values-with-argparse
@@ -85,7 +85,7 @@ def generate_folder(output_dir_exp, path_dinfo, path_weights):
     else:
         os.makedirs(output_dir_exp, exist_ok=True)
 
-    shutil.copyfile(os.path.join('data', 'jsonFiles', path_dinfo),
+    shutil.copyfile(os.path.join('configs', path_dinfo),
                     os.path.join(output_dir_exp, os.path.basename(path_dinfo)))
     shutil.copyfile(os.path.join('data', 'weights', path_weights),
                     os.path.join(output_dir_exp, os.path.basename(path_weights)))

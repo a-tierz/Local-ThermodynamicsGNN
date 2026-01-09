@@ -14,9 +14,11 @@ from src.gnn_nodal import NodalGNN
 from src.gnn import GNN
 from src.dataLoader.dataset import GraphDataset
 from src.evaluate import compute_error
-from src.utils.utils import generate_folder, compute_connectivity
-from src.utils.plots import plotError, plot_2D, plot_3D, plot_2D_image
+from src.utils.utils import generate_folder, compute_connectivity, set_seed
+from src.utils.plots import plotError, plot_2D, plot_3D, plot_2D_image, plot_thesis_layout
 from torch_geometric.nn import radius_graph
+
+import matplotlib.pyplot as plt
 
 MODEL_CLASSES = {
     'GNN': GNN,
@@ -27,6 +29,10 @@ def load_model(weights_path, config_name, device):
     """Load a model from checkpoint and configuration."""
     with open(os.path.join('configs', config_name), 'r') as f:
         dInfo = json.load(f)
+    
+    # Set seed for reproducibility
+    seed = dInfo['model'].get('seed', 42)
+    set_seed(seed)
     
     ckpt_dir = os.path.join('data', 'weights', weights_path)
     potential_scaler = os.path.join(ckpt_dir, 'scaler.pkl')
@@ -70,7 +76,7 @@ def load_model(weights_path, config_name, device):
     model.eval()
     return model, dInfo, scaler
 
-def run_rollout(model, simulation_data, device, dInfo, threshold_mult=10.0):
+def run_rollout(model, simulation_data, device, dInfo, threshold_mult=15.0):
     """Run rollout and monitor for divergence."""
     num_steps = len(simulation_data)
     # Get ground truth max for thresholding
@@ -80,6 +86,7 @@ def run_rollout(model, simulation_data, device, dInfo, threshold_mult=10.0):
     
     z_net = []
     z_gt = []
+    cnt = 0
     
     # Initial state
     current_snap = simulation_data[0].clone().to(device)
@@ -120,10 +127,10 @@ def run_rollout(model, simulation_data, device, dInfo, threshold_mult=10.0):
                 # Update connectivity if fluid
                 if dInfo['dataset']['type'] == 'fluid':
                     pos = z_next_denorm[:, :3].clone()
-
+                    start = time.time()
                     next_snap.edge_index = compute_connectivity(np.asarray(pos.cpu()), dInfo['dataset']['radius_connectivity'], add_self_edges=False).to(
                     device)
-                
+                    cnt += time.time() - start
                 current_snap = next_snap.to(device)
                 
         except Exception as e:
@@ -132,14 +139,15 @@ def run_rollout(model, simulation_data, device, dInfo, threshold_mult=10.0):
             step_diverged = t
             break
             
+    print(f'edge time: {cnt}')
     # Return as tensors [steps, nodes, variables]
     return torch.stack(z_net), torch.stack(z_gt), step_diverged, diverged
 
 def main():
     parser = argparse.ArgumentParser(description='Evaluate a single GNN model')
-    parser.add_argument('--weights', type=str,  default=r'train_2cluster_NodalGNN_2025-12-22_01-21-58_epoch=27-val_loss=10.55.ckpt', help='Path to .pt weights')
+    parser.add_argument('--weights', type=str,  default=r'train_NodalGNN_2026-01-09_10-13-53_epoch=12-val_loss=24.65.ckpt', help='Path to .pt weights')
     parser.add_argument('--config', type=str, default='dataset_Water3D.json', help='Path to .json config')
-    parser.add_argument('--test_dir', type=str, default=r'data/datasets/test_V62', help='Directory with test .pt files')
+    parser.add_argument('--test_dir', type=str, default=r'data/datasets/test_V70', help='Directory with test .pt files')
     parser.add_argument('--output_dir', type=str, default='outputs/evaluations')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu')
     parser.add_argument('--plot_sim_idx', type=int, default=0, help='Index of simulation to plot')
@@ -187,41 +195,132 @@ def main():
         all_metrics["one_step"][f"MSE_{var}"] = float(mse[i])
         all_metrics["one_step"][f"MAE_{var}"] = float(mae[i])
 
-    # 2. Rollout Evaluation
+    # 1. INICIALIZACIÓN DE LISTAS (Añadir total_mse_list)
+    all_errors_over_time = []
+    total_mse_list = []  # <--- NUEVO: Para guardar el error cuadrático crudo (RMSE estándar)
+
     print("Running rollout simulations...")
+
     for i, f in enumerate(test_files):
         print(f"  Simulation {i}: {os.path.basename(f)}")
         sim_data = torch.load(f, weights_only=False)
+
+        start = time.time()   
         z_net, z_gt, sud, diverged = run_rollout(model, sim_data, device, dInfo)
+        print(f'Inference time cost: {time.time()-start}' )
         
+        # 1. Convertir a Numpy
+        if isinstance(z_net, torch.Tensor):
+            z_net_np = z_net.cpu().detach().numpy()
+            z_gt_np = z_gt.cpu().detach().numpy()
+        else:
+            z_net_np = z_net
+            z_gt_np = z_gt
+
+        if i == args.plot_sim_idx:                
+            gif_path = os.path.join(output_dir, f"rollout_sim_{i}.gif")
+            if dataset_dim == '2D':
+                plot_2D(z_net.numpy(), z_gt.numpy(), gif_path, var=4 if len(state_vars) > 4 else 0)
+            else:
+                plot_3D(z_net, z_gt, gif_path, var=-1)
+
+
+        # --- NUEVO: CÁLCULO DE MSE CRUDO (Para la fila RMSE de la tabla) ---
+        # Calculamos (Pred - GT)^2 promedio sobre tiempo y nodos para esta trayectoria
+        # Shape resultante: [Variables]
+        raw_mse_traj = np.mean((z_net_np - z_gt_np)**2, axis=(0, 1))
+        total_mse_list.append(raw_mse_traj)
+        # ------------------------------------------------------------------
+
+        # --- CÁLCULO DE LA MÉTRICA CONSISTENTE CON 'se_inf' ---
+        # Asumimos shape: [Time, Nodes, Variables]
+        num_timesteps = z_gt_np.shape[0]
+        # num_nodes = z_gt_np.shape[1] # No se usa explícitamente abajo pero está bien tenerlo
+        num_vars = z_gt_np.shape[2]
+        
+        # Array para guardar el error promedio por paso de tiempo para esta simulación
+        metric_over_time = np.zeros((num_timesteps, num_vars))
+        epsilon = 1e-6 
+        
+        for t in range(num_timesteps):
+            gt_snap = z_gt_np[t]     # Shape: [Nodes, Vars]
+            pred_snap = z_net_np[t]  # Shape: [Nodes, Vars]
+            
+            # 1. Denominador: Norma Infinito al cuadrado (Max Abs del GT)
+            infinite_norm_se = np.max(np.abs(gt_snap), axis=0) ** 2 + epsilon 
+            
+            # 2. Numerador: Error al cuadrado por nodo
+            diff_sq = (gt_snap - pred_snap) ** 2 
+            
+            # 3. Ratio y Promedio
+            ratios_per_node = diff_sq / infinite_norm_se 
+            metric_over_time[t] = np.mean(ratios_per_node, axis=0)
+
+        # Guardamos la trayectoria de error relativo de esta simulación
+        all_errors_over_time.append(metric_over_time)
+
+        # ... (Resto de tu código de sim_res, plotError, gif, etc.) ...
         sim_res = {
             "file": os.path.basename(f),
             "sud": int(sud),
             "total_steps": len(sim_data),
             "diverged": bool(diverged)
         }
+        all_metrics["rollout"].append(sim_res)
         
-        # Error metrics for the stable part
         if len(z_net) > 1:
             error, L2_list = compute_error(z_net[1:], z_gt[1:], state_vars)
             sim_res["rmse"] = {k: float(v) for k, v in error.items()}
 
-            print(f"  Generating plots for simulation {i}...")
-            plotError(z_gt, z_net, L2_list, state_vars, dataset_dim, output_dir, i)
-            # Visualization for the requested simulation
-            # if i == args.plot_sim_idx:                
-            #     gif_path = os.path.join(output_dir, f"rollout_sim_{i}.gif")
-            #     if dataset_dim == '2D':
-            #         plot_2D(z_net.numpy(), z_gt.numpy(), gif_path, var=4 if len(state_vars) > 4 else 0)
-            #     else:
-            #         plot_3D(z_net.numpy(), z_gt.numpy(), gif_path, var=-1)
                     
-        all_metrics["rollout"].append(sim_res)
 
-    # Summary
+    # --- FINAL DEL BUCLE ---
+
+    print("Generando gráfico acumulado...")
+    name_file = os.path.join(output_dir, 'ac_error.pdf')
+    plot_thesis_layout(all_errors_over_time, state_vars, name_file) # Asegúrate que tu función acepte 'name_file' si lo has modificado
+
+    # ==============================================================================
+    # CÁLCULO FINAL DE TABLA (RMSE vs RRMSE %)
+    # ==============================================================================
+    print("\n" + "="*50)
+    print("CALCULATING FINAL TABLE METRICS")
+    print("="*50)
+
+    # 1. Procesar RMSE (Unidades Reales)
+    # Promedio de todos los MSE de todas las trayectorias
+    avg_mse_raw = np.mean(np.stack(total_mse_list), axis=0) # [Vars]
+    final_rmse_raw = np.sqrt(avg_mse_raw) # Raíz para obtener RMSE
+
+    # 2. Procesar RRMSE % (Norma Infinito)
+    # Concatenamos todos los pasos de tiempo de todas las sims para una media global
+    # 'all_errors_over_time' contiene los errores CUADRATICOS relativos
+    all_relative_sq = np.concatenate(all_errors_over_time, axis=0) # [Total_Time_Steps, Vars]
+    avg_relative_sq = np.mean(all_relative_sq, axis=0) # [Vars]
+    final_rrmse_inf = np.sqrt(avg_relative_sq) * 100 # Raíz y a Porcentaje
+
+    # 3. Agrupación por Posición, Velocidad, Energía
+    # --- POSICIÓN (Indices 0, 1, 2) ---
+    val_rmse_pos = np.mean(final_rmse_raw[0:3])
+    val_rrmse_pos = np.mean(final_rrmse_inf[0:3])
+
+    # --- VELOCIDAD (Indices 3, 4, 5) ---
+    val_rmse_vel = np.mean(final_rmse_raw[3:6])
+    val_rrmse_vel = np.mean(final_rrmse_inf[3:6])
+
+    # --- ENERGÍA (Indice 6) ---
+    val_rmse_ene = final_rmse_raw[6]
+    val_rrmse_ene = final_rrmse_inf[6]
+
+    # Imprimir para copiar a LaTeX
+    print(f"METRIC      | Position (q) | Velocity (v) | Energy (e)")
+    print(f"RMSE        | {val_rmse_pos:.2e}     | {val_rmse_vel:.2e}     | {val_rmse_ene:.2e}")
+    print(f"RRMSE (%)   | {val_rrmse_pos:.3f}        | {val_rrmse_vel:.3f}        | {val_rrmse_ene:.3f}")
+
+
+    # Summary original
     avg_sud = np.mean([r['sud'] for r in all_metrics['rollout']])
     pct_diverged = np.mean([1 if r['diverged'] else 0 for r in all_metrics['rollout']]) * 100
-    
     print("\n--- Evaluation Summary ---")
     print(f"One-step MSE (avg): {np.mean(mse):.2e}")
     print(f"Avg Steps Until Divergence (SUD): {avg_sud:.1f} / {len(sim_data)}")
@@ -239,6 +338,52 @@ def main():
                     os.path.join(output_dir, 'gnn_nodal.py'))
         
     print(f"\nDetailed results and plots saved to: {output_dir}")
+
+
+
+    # 1. Longitud mínima de tiempo
+    if not all_errors_over_time:
+        print("No simulations processed.")
+    else:
+        min_len = min([traj.shape[0] for traj in all_errors_over_time])
+
+        # 2. Stack 
+        stacked_errors = np.stack([traj[:min_len, :] for traj in all_errors_over_time], axis=0)
+        # Shape resultante: [Simulaciones, Tiempo, Variables]
+
+        # 3. Media y Std (Axis 0 = Simulaciones)
+        mean_error = np.mean(stacked_errors, axis=0) # [Tiempo, Variables]
+        std_error = np.std(stacked_errors, axis=0)   # [Tiempo, Variables]
+
+        # 4. Plotting
+        # Aseguramos que state_vars coincida con las columnas
+        num_vars = mean_error.shape[1] 
+        fig, axes = plt.subplots(num_vars, 1, figsize=(10, 3 * num_vars), sharex=True)
+        if num_vars == 1: axes = [axes]
+
+        time_steps = np.arange(min_len)
+
+        for idx, var_name in enumerate(state_vars):
+            if idx >= num_vars: break # Seguridad por si state_vars no coincide
+            ax = axes[idx]
+            mu = mean_error[:, idx]
+            sigma = std_error[:, idx]
+            
+            # Etiqueta acorde a tu métrica
+            ax.plot(time_steps, mu, label=f'Mean Norm-Inf MSE ({var_name})', color='#223D71')
+            ax.fill_between(time_steps, mu - sigma, mu + sigma, color='#223D71', alpha=0.2, label='Std Dev')
+            
+            ax.set_title(f"Rollout Error: {var_name}")
+            ax.set_ylabel("MSE (Norm. by Inf)") 
+            ax.grid(True, alpha=0.3)
+            if idx == 0: ax.legend()
+
+        axes[-1].set_xlabel("Time Steps")
+        plt.tight_layout()
+        plt.show()
+
+
+
 
 if __name__ == "__main__":
     main()

@@ -12,6 +12,7 @@ import plotly.graph_objs as go
 import matplotlib.pyplot as plt
 from matplotlib import animation
 from matplotlib.colors import Normalize
+import matplotlib.gridspec as gridspec
 
 
 def plot_2D_image(z_net, z_gt, step, var=5, output_dir='outputs'):
@@ -255,7 +256,7 @@ def plot_1D(z_net, z_gt, q_0, save_dir, var=0):
 
 
 def plot_3D(z_net, z_gt, save_dir, var=5):
-    T = z_net.size(0)
+    T = z_net.shape[0]
 
     fig = plt.figure(figsize=(30, 20))
     ax1 = fig.add_subplot(1, 3, 2, projection='3d')
@@ -330,7 +331,7 @@ def plot_3D(z_net, z_gt, save_dir, var=5):
                     vmin=z_min)
         ax3.scatter(q1_net, q2_net, q3_net, c=var_error, s=100, alpha=0.5,
                     vmax=var_error_max, vmin=var_error_min)
-        fig.savefig(os.path.join(r'/home/atierz/Documentos/code/Local-ThermodynamicsGNN/images', f'glass_{snap}.png'))
+        # fig.savefig(os.path.join(r'/home/atierz/Documentos/code/Local-ThermodynamicsGNN/images', f'glass_{snap}.png'))
         return fig,
 
     anim = animation.FuncAnimation(fig, animate, frames=T, repeat=False)
@@ -870,3 +871,93 @@ def plot_3D_scatter(pos, values, title="3D Scatter", file_path=None):
         plt.close(fig)
     else:
         plt.show()
+
+
+
+def plot_thesis_layout(all_errors_over_time, state_vars, name_file):
+    """
+    Genera un gráfico compuesto profesional para tesis.
+    Estructura:
+      Pos X | Vel X
+      Pos Y | Vel Y
+      Pos Z | Vel Z
+         Energy
+    """
+    
+    # 1. Procesar datos (igual que antes)
+    min_len = min([traj.shape[0] for traj in all_errors_over_time])
+    stacked_errors = np.stack([traj[:min_len, :] for traj in all_errors_over_time], axis=0)
+    mean_error = np.mean(stacked_errors, axis=0)
+    std_error = np.std(stacked_errors, axis=0)
+    time_steps = np.arange(min_len)
+
+    # 2. Configuración de la Figura (Tamaño A4 ajustado)
+    # 8.27 pulgadas es el ancho A4. Usamos un poco menos por los márgenes.
+    fig = plt.figure(figsize=(10, 10)) 
+    
+    # GridSpec: 4 filas, 2 columnas.
+    # height_ratios: Damos un poco menos de altura a la energía para que no destaque demasiado.
+    gs = gridspec.GridSpec(4, 2, height_ratios=[1, 1, 1, 0.8], figure=fig)
+
+    # --- Definición de ejes ---
+    # Columna Izquierda (Posición)
+    ax_pos_x = fig.add_subplot(gs[0, 0])
+    ax_pos_y = fig.add_subplot(gs[1, 0], sharex=ax_pos_x)
+    ax_pos_z = fig.add_subplot(gs[2, 0], sharex=ax_pos_x)
+    
+    # Columna Derecha (Velocidad)
+    ax_vel_x = fig.add_subplot(gs[0, 1], sharex=ax_pos_x)
+    ax_vel_y = fig.add_subplot(gs[1, 1], sharex=ax_pos_x)
+    ax_vel_z = fig.add_subplot(gs[2, 1], sharex=ax_pos_x)
+    
+    # Fila Inferior (Energía - ocupa las dos columnas)
+    ax_energy = fig.add_subplot(gs[3, :], sharex=ax_pos_x)
+
+    # Agrupamos los ejes para iterar fácil
+    # Índices asumiendo: 0,1,2=Pos | 3,4,5=Vel | 6=Energy
+    # Ajusta estos índices si el orden en 'state_vars' es diferente
+    axes_map = [
+        (ax_pos_x, 0, "Position X"), (ax_vel_x, 3, "Velocity X"),
+        (ax_pos_y, 1, "Position Y"), (ax_vel_y, 4, "Velocity Y"),
+        (ax_pos_z, 2, "Position Z"), (ax_vel_z, 5, "Velocity Z"),
+        (ax_energy, 6, "Total Energy")
+    ]
+
+    # --- Estilizado ---
+    for ax, idx, title in axes_map:
+        # Datos
+        mu = mean_error[:, idx]
+        sigma = std_error[:, idx]
+        
+        # Plot
+        ax.plot(time_steps, mu, color='#223D71', linewidth=1.5, label='Mean Error') # Azul profesional
+        ax.fill_between(time_steps, mu - sigma, mu + sigma, color="#768AAF", alpha=0.5, label='Std Dev')
+        
+        # Títulos y Grids
+        # Ponemos el título DENTRO del plot o a la izquierda para ahorrar espacio vertical
+        ax.text(0.02, 0.85, title, transform=ax.transAxes, fontsize=10, fontweight='bold', 
+                bbox=dict(facecolor='white', alpha=0.8, edgecolor='none'))
+        
+        ax.grid(True, linestyle='--', alpha=0.4)
+        
+        # Solo ponemos etiquetas Y a la izquierda de todo
+        if ax in [ax_pos_x, ax_pos_y, ax_pos_z, ax_energy]:
+            ax.set_ylabel("Norm-Inf MSE", fontsize=9)
+            
+        # Solo ponemos etiquetas X abajo de todo
+        if ax in [ax_pos_z, ax_vel_z, ax_energy]:
+             ax.tick_params(labelbottom=True)
+        else:
+             ax.tick_params(labelbottom=False) # Ocultar números del eje X en filas superiores
+
+    # Etiqueta X final
+    ax_energy.set_xlabel("Time Steps", fontsize=11)
+    
+    # Título Global (Opcional, a veces en tesis va en el caption de abajo)
+    # fig.suptitle("Evolution of Rollout Error (Normalized by Infinity Norm)", fontsize=14, y=0.92)
+
+    plt.tight_layout()
+    # Ajuste fino para que no se solapen títulos
+    plt.subplots_adjust(hspace=0.1, wspace=0.15)
+    
+    plt.savefig(name_file)
