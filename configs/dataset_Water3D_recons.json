@@ -1,0 +1,35 @@
+{
+  "project_name": "Glass3D_recons",
+  "dataset": {
+    "folder": "weights",
+    "type": "fluid",
+    "dt": 0.008,
+    "radius_connectivity": 0.010,
+    "dataset_dim": "3D",
+    "external_force_dim": 3,
+    "q_dim": 3,
+    "q0_dim": 0,
+    "g_dim": 0,
+    "state_variables": ["COORD.COOR1", "COORD.COOR2", "COORD.COOR3", "v1", "v2", "v3", "  E"],
+    "datasetPaths": {
+      "train": "V171_TIGNN_Glass_mask05_recons_rc010_dt008_train.pt",
+      "val": "V171_TIGNN_Glass_mask05_recons_rc010_dt008_val.pt",
+      "test": "V171_TIGNN_mask05_recons_rc010_dt008_GlassV5_recons_m0035_test.pt"
+    }
+  },
+  "model": {
+    "n_hidden": 2,
+    "dim_hidden": 100,
+    "passes": 7,
+    "seed": 1,
+    "fixLr": true,
+    "lr": 8e-4,
+    "lambda_d": 50,
+    "noise_var": 8e-3,
+    "batch_size": 1,
+    "max_epoch": 250,
+    "miles": [60, 120, 180, 240, 300, 400],
+    "gamma": 3e-1,
+    "rollout_freq": 5000
+  }
+}

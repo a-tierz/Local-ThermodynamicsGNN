@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import torch
 import torch.nn as nn
@@ -8,6 +9,9 @@ import argparse
 import time
 import datetime
 from glob import glob
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
 from torch_geometric.loader import DataLoader
 from src.gnn_nodal import NodalGNN
 from src.gnn import GNN

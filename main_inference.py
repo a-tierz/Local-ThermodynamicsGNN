@@ -10,7 +10,7 @@ from src.dataLoader.dataset import GraphDataset
 from src.gnn_nodal import NodalGNN
 from src.gnn import GNN
 from src.utils.utils import str2bool
-from src.evaluate import generate_results, generate_results_recons
+from src.evaluate import generate_results, generate_results_recons, generate_results_recons_1sample
 
 MODEL_CLASSES = {
     'GNN': GNN,
@@ -22,11 +22,11 @@ if __name__ == '__main__':
 
     # Study Case
     parser.add_argument('--gpu', default=True, type=str2bool, help='GPU acceleration')
-    parser.add_argument('--pretrain_weights', default=r'train_NodalGNN_2025-12-18_11-20-10_epoch=25-val_loss=7.52.ckpt', type=str, help='name')
-    parser.add_argument('--model', default='NodalGNN', choices=MODEL_CLASSES.keys(), help='Model to train: GNN NodalGNN')
+    parser.add_argument('--pretrain_weights', default=r'train_GNN_2026-01-26_12-32-54_epoch=165-val_loss=0.00.ckpt', type=str, help='name')
+    parser.add_argument('--model', default='GNN', choices=MODEL_CLASSES.keys(), help='Model to train: GNN NodalGNN')
 
     # Dataset Parameters
-    parser.add_argument('--dinit_name', default=r'dataset_Water3D.json', type=str, help='name of the dataset config file')
+    parser.add_argument('--dinit_name', default=r'dataset_Water3D_recons.json', type=str, help='name of the dataset config file')
     parser.add_argument('--dset_dir', default='data', type=str, help='dataset directory') # This argument is still needed for actual dataset files
     # Save and plot options
     parser.add_argument('--output_dir', default='outputs', type=str, help='output directory')
@@ -65,8 +65,9 @@ if __name__ == '__main__':
 
 
 
-    generate_results(model, test_dataloader, dInfo, device, output_dir_exp, args.dinit_name, args.pretrain_weights)  
+    # generate_results(model, test_dataloader, dInfo, device, output_dir_exp, args.dinit_name, args.pretrain_weights)  
     
-    #BUENO RECOSN generate_results_recons(model, trainer, test_dataloader, dInfo, scaler, output_dir_exp, args.dset_name, args.pretrain_weights)
-
-    # generate_results_recons_1sample(model, test_dataloader, dInfo, device, output_dir_exp, args.dset_name, args.pretrain_weights)
+    #BUENO RECOSN 
+    generate_results_recons(model, trainer, test_dataloader, dInfo, scaler, output_dir_exp, args.dinit_name, args.pretrain_weights)
+                            
+    generate_results_recons_1sample(model, test_dataloader, dInfo, device, output_dir_exp, args.dinit_name, args.pretrain_weights)

@@ -124,8 +124,8 @@ class GNN(pl.LightningModule):
         self.batch_size = torch.max(batch) + 1
         z_norm = torch.from_numpy(self.scaler.transform(z_t0.cpu())).float().to(self.device)
         z1_norm = torch.from_numpy(self.scaler.transform(z_t1.cpu())).float().to(self.device)
-        # if f is not None:
-        #     f = torch.from_numpy(self.scaler_f.transform(f.cpu())).float().to(self.device)
+        if f is not None:
+            f = torch.from_numpy(self.scaler_f.transform(f.cpu())).float().to(self.device)
         #     f = torch.from_numpy(self.scaler_f.transform(f.cpu())).float().to(self.device)
 
         if mode == 'train':
@@ -188,11 +188,11 @@ class GNN(pl.LightningModule):
 
         dzdt_net, loss, plot_info = self.pass_thought_net(z_t0, z_t1, edge_index, n, f, g=None,
                                                           batch=batch.batch, mode=mode)
-        return dzdt_net, loss, plot_info
+        return dzdt_net, loss, plot_info, n
 
     def training_step(self, batch, batch_idx, g=None):
 
-        dzdt_net, loss, _ = self.extrac_pass(batch, 'train')
+        dzdt_net, loss, _, n = self.extrac_pass(batch, 'train')
         return loss
 
     def validation_step(self, batch, batch_idx, g=None):
@@ -201,11 +201,11 @@ class GNN(pl.LightningModule):
 
     def predict_step(self, batch, batch_idx, g=None):
 
-        dzdt_net, loss, plot_info = self.extrac_pass(batch, 'eval')
+        dzdt_net, loss, plot_info, n = self.extrac_pass(batch, 'eval')
         z1_net_denorm = torch.from_numpy(self.scaler.inverse_transform(dzdt_net.detach().to('cpu'))).float().to(
             self.device)
 
-        return z1_net_denorm, batch.y, plot_info
+        return z1_net_denorm, batch.y, plot_info, n
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
