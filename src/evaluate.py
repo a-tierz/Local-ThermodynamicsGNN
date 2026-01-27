@@ -203,7 +203,10 @@ def  generate_results_recons(gnn, trainer, test_dataloader, dInfo, scaler, outpu
         z_net =z_net[n == 1, :].cpu().numpy()
         z_gt =z_gt[n == 1, :].cpu().numpy() 
 
-        plot_flow_comparison(z_gt, z_net, n_variable=4, file_path=os.path.join(output_dir_exp, f'{str(i)}_velocities3D.png'))
+        plot_flow_comparison(z_gt, z_net, n_variable=3, file_path=os.path.join(output_dir_exp, f'{str(i)}_vx_3D.png'))
+        plot_flow_comparison(z_gt, z_net, n_variable=4, file_path=os.path.join(output_dir_exp, f'{str(i)}_vy_3D.png'))
+        plot_flow_comparison(z_gt, z_net, n_variable=5, file_path=os.path.join(output_dir_exp, f'{str(i)}_vz_3D.png'))
+        plot_flow_comparison(z_gt, z_net, n_variable=-1, file_path=os.path.join(output_dir_exp, f'{str(i)}_energy.png'))
         plot_velPos_gnn(z_gt, z_net, os.path.join(output_dir_exp, f'{str(i)}_velocities.png'))
 
     plot_velocity_3D(z_gt, z_net)

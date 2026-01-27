@@ -103,7 +103,7 @@ class GNN(pl.LightningModule):
         self.GraphNet = \
             MetaLayer(node_model=node_model, edge_model=edge_model)
 
-        self.decoder = MLP([dim_hidden] + n_hidden * [dim_hidden] + [self.dim_z])
+        self.decoder = MLP([dim_hidden] + n_hidden * [dim_hidden] + [self.dim_z-3])      
 
         self.ones = torch.ones(self.dim_z, self.dim_z)
         self.scaler, self.scaler_f = scaler
@@ -162,6 +162,7 @@ class GNN(pl.LightningModule):
 
         '''Decoder'''
         dzdt_net = self.decoder(x)
+        dzdt_net = torch.cat([z1_norm[:, :3], dzdt_net], dim=1)
 
         loss = self.criterion(dzdt_net[n == 1, 3:], z1_norm[n == 1, 3:])
 
