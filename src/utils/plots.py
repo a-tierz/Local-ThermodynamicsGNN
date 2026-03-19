@@ -734,7 +734,7 @@ def plot_velPos_gnn(z_gt, z_net, file_path):
     axes[0, 0].scatter(pos_x, vel_x_gt, s=1, color="red", label="Ground Truth", alpha=0.5)
     axes[0, 0].set_xlabel("Position X")
     axes[0, 0].set_ylabel("Velocity X")
-    axes[0, 0].set_title("VELOCITY vs Position X")
+    axes[0, 0].set_title("VELOCITY X vs Position X")
     axes[0, 0].legend()
 
     # Plot Velocity Y
@@ -815,7 +815,7 @@ def plot_velocity_3D(z_gt, z_net):
 def plot_flow_comparison(z_gt, z_net, n_variable, file_path):
 
     pos = z_gt[:,:3]
-    v_gt, v_pred = z_gt[:,3:6], z_net[:,3:6]
+    # v_gt, v_pred = z_gt[:,3:6], z_net[:,3:6]
     speed_gt, speed_pred = z_gt[:,n_variable], z_net[:,n_variable]
 
     fig = plt.figure(figsize=(14, 5))
@@ -838,7 +838,8 @@ def plot_flow_comparison(z_gt, z_net, n_variable, file_path):
     ax2.set_title("Prediction (speed)")
 
     # --- Panel C: Error map ---
-    error = np.linalg.norm(v_gt - v_pred, axis=1)
+    # error = np.linalg.norm(v_gt - v_pred, axis=1)
+    error = speed_gt - speed_pred
     ax3 = fig.add_subplot(133, projection="3d")
     sc3 = ax3.scatter(pos[:, 0], pos[:, 2], pos[:, 1],
                       c=error, s=8, alpha=0.9)
