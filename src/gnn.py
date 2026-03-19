@@ -90,6 +90,7 @@ class GNN(pl.LightningModule):
         dim_node = self.dims['z'] + self.dims['n'] - self.dims['q']
         dim_edge = self.dims['q'] + self.dims['q_0'] + 1
         dim_f = self.dims['f']
+        self.eps = 1e-12
         self.state_variables = dt_info['dataset']['state_variables']
 
         # Encoder MLPs
@@ -123,6 +124,7 @@ class GNN(pl.LightningModule):
     def pass_thought_net(self, z_t0, z_t1, edge_index, n, f, g=None, batch=None, mode='val', plot_info=[]):
         self.batch_size = torch.max(batch) + 1
         z_norm = torch.from_numpy(self.scaler.transform(z_t0.cpu())).float().to(self.device)
+        z_t1[:,-1] = torch.log(z_t1[:,-1]  + self.eps )  #TODO quitarrrrr que era para pruebas del vaso!!!!!
         z1_norm = torch.from_numpy(self.scaler.transform(z_t1.cpu())).float().to(self.device)
         if f is not None:
             f = torch.from_numpy(self.scaler_f.transform(f.cpu())).float().to(self.device)
@@ -163,7 +165,7 @@ class GNN(pl.LightningModule):
         '''Decoder'''
         dzdt_net = self.decoder(x)
 
-        loss = self.criterion(dzdt_net[n == 1, 3:], z1_norm[n == 1, 3:])
+        loss = self.criterion(dzdt_net[n != 0, 3:], z1_norm[n != 0, 3:])
 
         if mode != 'eval':
             self.log(f"{mode}_loss", loss, prog_bar=True, on_step=False, on_epoch=True)

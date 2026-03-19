@@ -90,54 +90,58 @@ def run_rollout(model, simulation_data, device, dInfo, threshold_mult=15.0):
     
     # Initial state
     current_snap = simulation_data[0].clone().to(device)
-    z_net.append(current_snap.x[current_snap.n == 1].cpu())
-    z_gt.append(current_snap.x[current_snap.n == 1].cpu())
+    z_net.append(current_snap.x.cpu())
+    z_gt.append(current_snap.x.cpu())
+    # z_net.append(current_snap.x[current_snap.n != 0].cpu())
+    # z_gt.append(current_snap.x[current_snap.n != 0].cpu())
     
     diverged = False
     step_diverged = num_steps
     
     for t in range(num_steps):
-        try:
-            with torch.no_grad():
-                z_next_denorm, z_gt_t1, _ = model.predict_step(current_snap, t)
-            
-            # Check for NaN
-            if torch.isnan(z_next_denorm).any():
-                diverged = True
-                step_diverged = t
-                print(f"torch.isnan at step {t}")
-                break
-                
-            # Check for threshold violation
-            mask = current_snap.n == 1
-            pred_vals = z_next_denorm[mask].cpu().numpy()
-            if (np.abs(pred_vals) > thresholds).any():
-                diverged = True
-                step_diverged = t
-                print(f"thresholds passes at step {t}")
-                break
-            
-            z_net.append(z_next_denorm[mask].cpu())
-            z_gt.append(z_gt_t1[mask].cpu())
-            # Prepare next step
-            if t < num_steps - 1:
-                next_snap = simulation_data[t+1].clone()
-                next_snap.x = z_next_denorm # Update state for next step
-                
-                # Update connectivity if fluid
-                if dInfo['dataset']['type'] == 'fluid':
-                    pos = z_next_denorm[:, :3].clone()
-                    start = time.time()
-                    next_snap.edge_index = compute_connectivity(np.asarray(pos.cpu()), dInfo['dataset']['radius_connectivity'], add_self_edges=False).to(
-                    device)
-                    cnt += time.time() - start
-                current_snap = next_snap.to(device)
-                
-        except Exception as e:
-            print(f"Error during rollout at step {t}: {e}")
+        # try:
+        with torch.no_grad():
+            z_next_denorm, z_gt_t1, _ = model.predict_step(current_snap, t)
+        
+        # Check for NaN
+        if torch.isnan(z_next_denorm).any():
             diverged = True
             step_diverged = t
+            print(f"torch.isnan at step {t}")
             break
+            
+        # Check for threshold violation
+        mask = current_snap.n != 0
+        pred_vals = z_next_denorm[mask].cpu().numpy()
+        if (np.abs(pred_vals) > thresholds).any():
+            diverged = True
+            step_diverged = t
+            print(f"thresholds passes at step {t}")
+            break
+        
+        z_net.append(z_next_denorm.cpu())
+        z_gt.append(z_gt_t1.cpu())
+        # z_net.append(z_next_denorm[mask].cpu())
+        # z_gt.append(z_gt_t1[mask].cpu())
+        # Prepare next step
+        if t < num_steps - 1:
+            next_snap = simulation_data[t+1].clone()
+            next_snap.x = z_next_denorm # Update state for next step
+            
+            # Update connectivity if fluid
+            if dInfo['dataset']['type'] == 'fluid':
+                pos = z_next_denorm[:, :3].clone()
+                start = time.time()
+                next_snap.edge_index = compute_connectivity(np.asarray(pos.cpu()), dInfo['dataset']['radius_connectivity'], add_self_edges=False).to(
+                device)
+                cnt += time.time() - start
+            current_snap = next_snap.to(device)
+                
+        # except Exception as e:
+        #     print(f"Error during rollout at step {t}: {e}")
+        #     diverged = True
+        #     step_diverged = t
+        #     break
             
     print(f'edge time: {cnt}')
     # Return as tensors [steps, nodes, variables]
@@ -145,9 +149,9 @@ def run_rollout(model, simulation_data, device, dInfo, threshold_mult=15.0):
 
 def main():
     parser = argparse.ArgumentParser(description='Evaluate a single GNN model')
-    parser.add_argument('--weights', type=str,  default=r'train_NodalGNN_2026-01-09_10-13-53_epoch=12-val_loss=24.65.ckpt', help='Path to .pt weights')
+    parser.add_argument('--weights', type=str,  default=r'train_NodalGNN_2026-02-03_22-50-11_epoch=69-val_loss=2.14.ckpt', help='Path to .pt weights')
     parser.add_argument('--config', type=str, default='dataset_Water3D.json', help='Path to .json config')
-    parser.add_argument('--test_dir', type=str, default=r'data/datasets/test_V70', help='Directory with test .pt files')
+    parser.add_argument('--test_dir', type=str, default=r'data/datasets/test_V73', help='Directory with test .pt files')
     parser.add_argument('--output_dir', type=str, default='outputs/evaluations')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu')
     parser.add_argument('--plot_sim_idx', type=int, default=0, help='Index of simulation to plot')
@@ -311,6 +315,8 @@ def main():
     # --- ENERGÍA (Indice 6) ---
     val_rmse_ene = final_rmse_raw[6]
     val_rrmse_ene = final_rrmse_inf[6]
+    # val_rmse_ene = np.mean(final_rmse_raw[6:])
+    # val_rrmse_ene = np.mean(final_rrmse_inf[6:])
 
     # Imprimir para copiar a LaTeX
     print(f"METRIC      | Position (q) | Velocity (v) | Energy (e)")

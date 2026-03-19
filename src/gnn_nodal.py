@@ -168,10 +168,12 @@ class NodalGNN(pl.LightningModule):
             f = torch.from_numpy(self.scaler_f.transform(f.cpu())).float().to(self.device)
 
         if mode == 'train':
-            noise = self.noise_var * torch.randn_like(z_norm[n == 1])
-            z_norm[n == 1] = z_norm[n == 1] + noise*z_norm[n == 1]
-            noise = self.noise_var * torch.randn_like(z_norm[n == 2])
-            z_norm[n == 2] = z_norm[n == 2] + noise*z_norm[n == 2]
+            noise = self.noise_var * torch.randn_like(z_norm)
+            z_norm= z_norm+ noise*z_norm
+            # noise = self.noise_var * torch.randn_like(z_norm[n == 1])
+            # z_norm[n == 1] = z_norm[n == 1] + noise*z_norm[n == 1]
+            # noise = self.noise_var * torch.randn_like(z_norm[n == 2])
+            # z_norm[n == 2] = z_norm[n == 2] + noise*z_norm[n == 2]
 
         q = z_norm[:, :self.dim_q]
         v = z_norm[:, self.dim_q:]
@@ -198,16 +200,24 @@ class NodalGNN(pl.LightningModule):
             edge_attr += edge_attr_res
 
         '''Decoder'''
-        if self.project_name == 'Glass3D':
-            edge_index, edge_attr = add_self_loops(edge_index, edge_attr)
-            n_glass = x[n == 0].shape[0]
-            mask_fluid = ((edge_index >= n_glass)[0, :]) & ((edge_index >= n_glass)[1, :])
-            edge_index = edge_index[:, mask_fluid]
-            edge_index = edge_index - torch.min(edge_index)
-            edge_attr = edge_attr[mask_fluid, :]
-            x = x[n == 1]
-        else:
-            edge_index, edge_attr = add_self_loops(edge_index, edge_attr)
+        # if self.project_name == 'Glass3D':
+        #     edge_index, edge_attr = add_self_loops(edge_index, edge_attr)
+        #     node_mask = (n == 1) | (n == 2)
+        #     old_to_new = torch.full((n.shape[0],), -1, device=n.device, dtype=torch.long )
+        #     old_to_new[node_mask] = torch.arange( node_mask.sum(), device=n.device)
+        #     src, dest = edge_index
+
+        #     edge_mask = node_mask[src] & node_mask[dest]
+
+        #     edge_index = edge_index[:, edge_mask]
+        #     edge_attr = edge_attr[edge_mask]
+        #     edge_index = old_to_new[edge_index]
+        #     x = x[node_mask]
+        #     assert edge_index.min() >= 0
+        #     assert edge_index.max() < x.shape[0]
+        #     assert edge_attr.shape[0] == edge_index.shape[1]
+        # else:
+        edge_index, edge_attr = add_self_loops(edge_index, edge_attr)
 
         dzdt_net, loss_deg_E, loss_deg_S = self.decoder(x, edge_attr, edge_index[0, :], edge_index[1, :])
 
@@ -218,13 +228,13 @@ class NodalGNN(pl.LightningModule):
         else:
             dzdt = (z1_norm - z_norm) / self.dt
 
-        if self.project_name == 'Glass3D':
-            # Cojemos las particulas del glass de gt y no las predecimos
-            dzdt_net_b = dzdt.clone()
-            dzdt_net_b[n == 1] = dzdt_net
-            dzdt = dzdt[n == 1]
-        else:
-            dzdt_net_b = dzdt_net.reshape(dzdt.shape)
+        # if self.project_name == 'Glass3D':
+        #     # Cojemos las particulas del glass de gt y no las predecimos
+        #     dzdt_net_b = dzdt.clone()
+        #     dzdt_net_b[(n == 1) | (n == 2)] = dzdt_net
+        #     dzdt = dzdt[(n == 1) | (n == 2)]
+        # else:
+        dzdt_net_b = dzdt_net.reshape(dzdt.shape)
 
         loss_z = self.criterion(dzdt_net, dzdt)
         loss = self.lambda_d * loss_z + (loss_deg_E + loss_deg_S)

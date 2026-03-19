@@ -27,13 +27,13 @@ if __name__ == '__main__':
 
     # Study Case
     parser.add_argument('--gpu', default=True, type=str2bool, help='GPU acceleration')
-    parser.add_argument('--transfer_learning', default=False, type=str2bool, help='GPU acceleration')
-    parser.add_argument('--pretrain_weights', default=r'epoch=221-val_loss=6.18.ckpt', type=str, help='name')
-    parser.add_argument('--model', default='GNN', choices=MODEL_CLASSES.keys(), help='Model to train: GNN NodalGNN')
+    parser.add_argument('--transfer_learning', default=True, type=str2bool, help='GPU acceleration')
+    parser.add_argument('--pretrain_weights', default=r'train_NodalGNN_2026-02-11_11-38-15_epoch=493-val_loss=137.74.ckpt', type=str, help='name')
+    parser.add_argument('--model', default='NodalGNN', choices=MODEL_CLASSES.keys(), help='Model to train: GNN NodalGNN')
 
 
     # Dataset Parameters
-    parser.add_argument('--dset_name', default=r'dataset_Water3D_recons.json', type=str, help='dataset directory')
+    parser.add_argument('--dset_name', default=r'dataset_Beam3D.json', type=str, help='dataset directory')
  
     # Save and plot options
     parser.add_argument('--dset_dir', default='configs', type=str, help='dataset directory')

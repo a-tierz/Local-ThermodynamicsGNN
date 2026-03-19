@@ -580,10 +580,10 @@ def plot_3D_mp(z_net, plot_info, frame):
         ax1.scatter(q1_net, q2_net, q3_net, c=plot_info[snap].cpu() / plot_info[0].cpu())
 
         # Guardar la figura para cada frame
-        fig.savefig(os.path.join(
-            r'/home/atierz/Documentos/experiments/Foam_visco/3D/frames/',
-            f'2beam_{frame}_{snap}.png'
-        ))
+        # fig.savefig(os.path.join(
+        #     r'/home/atierz/Documentos/experiments/Foam_visco/3D/frames/',
+        #     f'2beam_{frame}_{snap}.png'
+        # ))
         return fig,
 
     anim = animation.FuncAnimation(fig, animate, frames=T, repeat=False)

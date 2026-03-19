@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from matplotlib import animation
 # from amb.metrics import rrmse_inf
 from torch_geometric.loader import DataLoader
-from src.utils.utils import print_error, generate_folder
+from src.utils.utils import print_error, generate_folder, compute_connectivity
 from src.utils.plots import plot_2D_image, plot_2D, plot_image3D, plotError, plot_3D, video_plot_3D, plot_3D_mp, plot_PyVista, plot_PyVista_comparativo, plot_velPos_gnn, plot_velocity_3D, plot_flow_comparison
 from src.dataLoader.dataset import GraphDataset
 from torch_geometric.nn import radius_graph
@@ -69,7 +69,8 @@ def roll_out(nodal_gnn, dataloader, device, radius_connectivity, dtset_type, gla
                 pos = z_denorm[:, :3].clone()
                 start_time = time.time()
                 edge_index = radius_graph(pos, r=radius_connectivity, loop=False, flow='source_to_target', max_num_neighbors=1000)
-
+                # edge_index = compute_connectivity(np.asarray(pos.cpu()), radius_connectivity, add_self_edges=False).to(
+                #     device)
                 cnt_conet += time.time() - start_time
             else:
                 edge_index = snap.edge_index
@@ -220,7 +221,7 @@ def  generate_results_recons(gnn, trainer, test_dataloader, dInfo, scaler, outpu
 
 
 
-def compute_fluid_metrics(y_hat, y, scaler):
+def compute_fluid_metrics_(y_hat, y, scaler):
     eps = 1e-12
     metrics = {}
 
@@ -274,5 +275,44 @@ def compute_fluid_metrics(y_hat, y, scaler):
     E_true = y[:,3].sum()
 
     metrics["Energy_rel_error_total"] = torch.abs(E_pred - E_true).item() / (E_true.item() + eps)
+
+    return metrics
+
+
+def compute_fluid_metrics(y_hat, y, scaler):
+    eps = 1e-12
+    metrics = {}
+    
+    # Error bruto para boxplots y desviaciones
+    e = y_hat - y
+    abs_e = torch.abs(e)
+    
+    # 1) MAE y RMSE con Desviación Estándar
+    for i, var in enumerate(['vx', 'vy', 'vz', 'E']):
+        metrics[f"MAE_{var}"] = torch.mean(abs_e[:, i]).item()
+        metrics[f"STD_{var}"] = torch.std(abs_e[:, i]).item() # Importante para la tesis
+        metrics[f"RMSE_{var}"] = torch.sqrt(torch.mean(e[:, i]**2)).item()
+
+    # 2) nRMSE (Normalizado por el rango) - Muy común en papers de GNN
+    v_range = (scaler.data_max_[3:6] - scaler.data_min_[3:6])
+    v_range = torch.tensor(v_range, device=y.device)
+    for i, var in enumerate(['vx', 'vy', 'vz']):
+        metrics[f"nRMSE_{var}"] = metrics[f"RMSE_{var}"] / (v_range[i] + eps)
+
+    # 3) Error Angular (Solo donde hay movimiento significativo)
+    mag_gt = torch.norm(y[:, :3], dim=1)
+    mask = mag_gt > (torch.max(mag_gt) * 0.1) # Umbral del 10%
+    
+    dot = torch.sum(y_hat[mask, :3] * y[mask, :3], dim=1)
+    denom = torch.norm(y_hat[mask, :3], dim=1) * mag_gt[mask] + eps
+    angles = torch.acos(torch.clamp(dot / denom, -1.0 + eps, 1.0 - eps))
+    
+    metrics["Mean_Angle_Deg"] = torch.rad2deg(torch.mean(angles)).item()
+    metrics["Std_Angle_Deg"] = torch.rad2deg(torch.std(angles)).item()
+
+    # 4) Conservación de Energía Global
+    E_total_pred = torch.sum(y_hat[:, 3])
+    E_total_gt = torch.sum(y[:, 3])
+    metrics["Global_Energy_Rel_Err"] = torch.abs(E_total_pred - E_total_gt).item() / (torch.abs(E_total_gt) + eps)
 
     return metrics
